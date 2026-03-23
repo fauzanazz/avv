@@ -92,7 +92,20 @@ Respond with ONLY the image — no text explanation.`,
  * Creates an SVG placeholder with a gradient and description text.
  * Used as fallback when image generation fails.
  */
+function escapeSvgText(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function toBase64(str: string): string {
+  return Buffer.from(str, "utf-8").toString("base64");
+}
+
 function createPlaceholderSvg(width: number, height: number, description: string): string {
+  const safeDesc = escapeSvgText(description.slice(0, 40));
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -101,10 +114,10 @@ function createPlaceholderSvg(width: number, height: number, description: string
       </linearGradient>
     </defs>
     <rect fill="url(#g)" width="${width}" height="${height}" rx="8"/>
-    <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${description.slice(0, 40)}</text>
+    <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${safeDesc}</text>
   </svg>`;
 
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  return `data:image/svg+xml;base64,${toBase64(svg)}`;
 }
 
 export const imageQueue = new ImageQueue();
