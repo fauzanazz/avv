@@ -10,6 +10,11 @@ class ImageQueue {
   private queue: Array<{ request: ImageRequest; callback: ImageCallback }> = [];
   private processing = false;
 
+<<<<<<< HEAD
+=======
+  onResult: ImageCallback | null = null;
+
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
   push(request: ImageRequest, callback: ImageCallback): void {
     this.queue.push({ request, callback });
     if (!this.processing) {
@@ -29,6 +34,10 @@ class ImageQueue {
     try {
       const result = await generateImage(item.request);
       item.callback(result);
+<<<<<<< HEAD
+=======
+      this.onResult?.(result);
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
     } catch (err) {
       console.error(`[ImageQueue] Failed to generate image:`, err);
       const fallback: ImageResult = {
@@ -39,6 +48,10 @@ class ImageQueue {
         height: item.request.height,
       };
       item.callback(fallback);
+<<<<<<< HEAD
+=======
+      this.onResult?.(fallback);
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
     }
 
     this.processNext();
@@ -92,6 +105,7 @@ Respond with ONLY the image — no text explanation.`,
  * Creates an SVG placeholder with a gradient and description text.
  * Used as fallback when image generation fails.
  */
+<<<<<<< HEAD
 function escapeSvgText(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -106,6 +120,9 @@ function toBase64(str: string): string {
 
 function createPlaceholderSvg(width: number, height: number, description: string): string {
   const safeDesc = escapeSvgText(description.slice(0, 40));
+=======
+function createPlaceholderSvg(width: number, height: number, description: string): string {
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -114,10 +131,17 @@ function createPlaceholderSvg(width: number, height: number, description: string
       </linearGradient>
     </defs>
     <rect fill="url(#g)" width="${width}" height="${height}" rx="8"/>
+<<<<<<< HEAD
     <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${safeDesc}</text>
   </svg>`;
 
   return `data:image/svg+xml;base64,${toBase64(svg)}`;
+=======
+    <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${description.slice(0, 40)}</text>
+  </svg>`;
+
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 }
 
 export const imageQueue = new ImageQueue();
