@@ -55,6 +55,11 @@
     "name": "component-status-streaming",
     "description": "Status updates broadcast (generating -> ready/error) and iteration counter increment",
     "passes": true
+  },
+  {
+    "name": "review-feedback-fixes",
+    "description": "Address all P0/P1/P2 review feedback from cubic code review",
+    "passes": true
   }
 >>>>>>> 128e92b (chore: add agent state tracking files [FAU-42])
 ]
