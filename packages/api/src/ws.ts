@@ -124,7 +124,13 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
           })
           .catch((err) => {
             console.error("[UltraThink] Failed:", err);
-            cleanupPendingAnswers(session.id);
+            // Clean up without rejecting — the promise may not have been awaited yet,
+            // and rejecting it would create an unhandled promise rejection.
+            const pending = pendingAnswers.get(session.id);
+            if (pending) {
+              clearTimeout(pending.timer);
+              pendingAnswers.delete(session.id);
+            }
             connectionStore.send(ws, { type: "error", message: "UltraThink flow failed" });
           });
       } else {

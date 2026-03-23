@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
+import type { ImageResult } from "@avv/shared";
 import { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./canvas/shapes";
 import { LayersPanel } from "./components/LayersPanel";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { ChatPanel } from "./components/ChatPanel";
+import { useImagePatching } from "./canvas/hooks/useImagePatching";
 
 const customShapeUtils = [AVVComponentShapeUtil];
 
@@ -43,7 +45,9 @@ export function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [spec, setSpec] = useState<string | null>(null);
+  const [imageResult, setImageResult] = useState<ImageResult | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const editorRef = useRef<Editor | null>(null);
 
   useEffect(() => {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -60,6 +64,9 @@ export function App() {
       }
       if (msg.type === "ultrathink:spec") {
         setSpec(msg.spec);
+      }
+      if (msg.type === "image:ready") {
+        setImageResult(msg.image);
       }
     };
 
@@ -80,8 +87,11 @@ export function App() {
     send({ type: "ultrathink:confirm" });
   }, [send]);
 
+  useImagePatching(editorRef.current, imageResult);
+
   const onMount = useCallback((ed: Editor) => {
     setEditor(ed);
+    editorRef.current = ed;
     handleMount(ed);
   }, []);
 

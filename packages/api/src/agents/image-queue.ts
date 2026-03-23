@@ -10,6 +10,8 @@ class ImageQueue {
   private queue: Array<{ request: ImageRequest; sessionId: string; callback: ImageCallback }> = [];
   private processing = false;
   private listeners = new Map<string, ImageCallback>();
+  private pendingBySession = new Map<string, number>();
+  private drainCallbacks = new Map<string, Array<() => void>>();
 
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -29,10 +31,40 @@ class ImageQueue {
   }
 
   push(request: ImageRequest, sessionId: string, callback: ImageCallback): void {
+    this.pendingBySession.set(sessionId, (this.pendingBySession.get(sessionId) ?? 0) + 1);
     this.queue.push({ request, sessionId, callback });
 >>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
     if (!this.processing) {
       this.processNext();
+    }
+  }
+
+  /**
+   * Returns a promise that resolves when all queued/in-flight items
+   * for a session have been processed. Resolves immediately if none pending.
+   */
+  drain(sessionId: string): Promise<void> {
+    if ((this.pendingBySession.get(sessionId) ?? 0) <= 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const callbacks = this.drainCallbacks.get(sessionId) ?? [];
+      callbacks.push(resolve);
+      this.drainCallbacks.set(sessionId, callbacks);
+    });
+  }
+
+  private completePending(sessionId: string): void {
+    const count = (this.pendingBySession.get(sessionId) ?? 1) - 1;
+    if (count <= 0) {
+      this.pendingBySession.delete(sessionId);
+      const callbacks = this.drainCallbacks.get(sessionId);
+      if (callbacks) {
+        for (const cb of callbacks) cb();
+        this.drainCallbacks.delete(sessionId);
+      }
+    } else {
+      this.pendingBySession.set(sessionId, count);
     }
   }
 
@@ -81,6 +113,7 @@ class ImageQueue {
 >>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
     }
 
+    this.completePending(item.sessionId);
     this.processNext();
   }
 }
