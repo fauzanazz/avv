@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { ApiResponse, GenerateRequest, Session } from "@avv/shared";
 import { sessionStore } from "../store";
+import { orchestrate } from "../agents/orchestrator";
 
 export const generateRoute = new Hono();
 
@@ -22,6 +23,17 @@ generateRoute.post("/generate", async (c) => {
   }
 
   const session = sessionStore.create(body.prompt, body.mode);
+
+  // Fire and forget — results stream via WebSocket
+  orchestrate({
+    prompt: body.prompt,
+    mode: body.mode,
+    sessionId: session.id,
+  }).catch((err) => {
+    console.error("[Orchestrate] Fatal error:", err);
+    sessionStore.update(session.id, { status: "error" });
+  });
+
   const response: ApiResponse<Session> = { success: true, data: session };
   return c.json(response, 201);
 });
