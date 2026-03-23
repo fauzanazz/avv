@@ -10,12 +10,16 @@ import { enrichPrompt } from "./enricher";
 import { loadPrompt } from "./prompt-loader";
 <<<<<<< HEAD
 import { createRequestImageTool } from "./tools";
+<<<<<<< HEAD
 import { submitComponentTool } from "./tools/submit-component";
 import { extractComponentResult } from "./component-collector";
 =======
 import { requestImageTool } from "./tools";
 import { imageQueue } from "./image-queue";
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
+=======
+import { imageQueue } from "./image-queue";
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
 
 /** Track active abort controllers by session ID */
 const activeControllers = new Map<string, AbortController>();
@@ -439,6 +443,14 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       image: result,
     });
   });
+
+  // Wire image queue to broadcast results via WebSocket
+  imageQueue.onResult = (result) => {
+    connectionStore.broadcast(sessionId, {
+      type: "image:ready",
+      image: result,
+    });
+  };
 
   await Promise.allSettled(buildPromises);
 

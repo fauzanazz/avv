@@ -10,9 +10,12 @@ export type ServerMessage =
   | { type: "generation:done"; sessionId: string }
   | { type: "image:ready"; image: ImageResult }
   | { type: "image:generating"; requestId: string; componentId: string }
+<<<<<<< HEAD
   | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
   | { type: "ultrathink:spec"; spec: string }
   | { type: "ultrathink:ready"; enrichedPrompt: string }
+=======
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
   | { type: "error"; message: string };
 
 export type ClientMessage =
