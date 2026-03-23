@@ -37,7 +37,7 @@ export function createWSHandler() {
         console.error("[WS] Handler error:", err);
         connectionStore.send(ws, {
           type: "error",
-          message: "Internal handler error",
+          message: "Internal server error",
         });
       }
     },
@@ -52,6 +52,9 @@ export function createWSHandler() {
 function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): void {
   switch (msg.type) {
     case "generate": {
+      // Remove socket from old session before joining a new one
+      connectionStore.remove(ws);
+
       const session = sessionStore.create(msg.prompt, msg.mode);
       connectionStore.add(session.id, ws);
       ws.data.sessionId = session.id;
@@ -75,6 +78,14 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       console.log(`[WS] Iterate request: ${msg.componentId}`);
       break;
     case "cancel": {
+      // Validate that the cancel request matches the socket's bound session
+      if (ws.data.sessionId !== msg.sessionId) {
+        connectionStore.send(ws, {
+          type: "error",
+          message: "Cannot cancel a session you are not connected to",
+        });
+        return;
+      }
       cancelSession(msg.sessionId);
       console.log(`[WS] Cancel request: ${msg.sessionId}`);
       break;

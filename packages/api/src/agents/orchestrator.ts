@@ -1,11 +1,10 @@
 import { query, createSdkMcpServer, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
-import type { DesignPlan, AVVComponent, ImageResult } from "@avv/shared";
+import type { DesignPlan, AVVComponent } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { enrichPrompt } from "./enricher";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
-import { imageQueue } from "./image-queue";
 
 /** Track active abort controllers by session ID */
 const activeControllers = new Map<string, AbortController>();
@@ -18,93 +17,79 @@ export function cancelSession(sessionId: string): void {
   }
 }
 
-function createBuilderAgents(
-  plan: DesignPlan
-): Record<string, AgentDefinition> {
-  const builderPrompt = loadPrompt("builder");
-  const agents: Record<string, AgentDefinition> = {};
+interface ComponentMapping {
+  id: string;
+  name: string;
+  order: number;
+}
 
-  for (const component of plan.components) {
-    const agentName = `builder-${component.order}`;
-    agents[agentName] = {
-      description: `Builds the "${component.name}" UI component. Use this agent when generating the ${component.name} section.`,
-      prompt: `${builderPrompt}
+function createBuilderAgent(
+  comp: DesignPlan["components"][number],
+): AgentDefinition {
+  const builderPrompt = loadPrompt("builder");
+
+  return {
+    description: `Builds the "${comp.name}" UI component. Use this agent when generating the ${comp.name} section.`,
+    prompt: `${builderPrompt}
 
 ## Your Task
 
-You are building the "${component.name}" component for a web page.
+You are building the "${comp.name}" component for a web page.
 
-**Component description:** ${component.description}
-**Design guidance:** ${component.designGuidance}
-**Target dimensions:** ${component.width}x${component.height}px
+**Component description:** ${comp.description}
+**Design guidance:** ${comp.designGuidance}
+**Target dimensions:** ${comp.width}x${comp.height}px
 
 ## Output Format
 
 You MUST respond with ONLY a JSON object in this exact format (no markdown, no explanation):
 
 {
-  "name": "${component.name}",
+  "name": "${comp.name}",
   "html": "<the HTML content>",
   "css": "<the CSS styles>"
 }
 
 The HTML should be a self-contained fragment that renders correctly in an iframe.
 Use inline Tailwind-style utility classes or write CSS in the css field.
-Make it visually polished, modern, and responsive within the given dimensions.`,
-      tools: [],
-      model: "sonnet",
-    };
-  }
-
-  return agents;
+Make it visually polished, modern, and responsive within the given dimensions.
+If you need images, use the mcp__image__request_image tool to generate them.`,
+    tools: ["mcp__image__request_image"],
+    model: "sonnet",
+  };
 }
 
 /**
- * Extracts the first valid JSON object from a string using balanced-brace counting.
- * Avoids greedy regex issues where trailing text corrupts the match.
+ * Extract JSON from LLM response using brace-depth counting
+ * instead of a greedy regex that can over-capture.
  */
-function extractJsonObject(text: string): string | null {
-  const start = text.indexOf("{");
+function extractJsonObject(text: string, requiredKey: string): string | null {
+  const keyIndex = text.indexOf(`"${requiredKey}"`);
+  if (keyIndex === -1) return null;
+
+  // Walk backwards to find the opening brace
+  let start = -1;
+  for (let i = keyIndex - 1; i >= 0; i--) {
+    if (text[i] === "{") {
+      start = i;
+      break;
+    }
+  }
   if (start === -1) return null;
 
+  // Walk forward counting brace depth to find the matching close
   let depth = 0;
-  let inString = false;
-  let escape = false;
-
   for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-
-    if (escape) {
-      escape = false;
-      continue;
-    }
-
-    if (ch === "\\") {
-      escape = true;
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-
-    if (inString) continue;
-
-    if (ch === "{") depth++;
-    else if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        return text.slice(start, i + 1);
-      }
-    }
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") depth--;
+    if (depth === 0) return text.slice(start, i + 1);
   }
 
   return null;
 }
 
 function parsePlanFromResponse(text: string): DesignPlan | null {
-  const json = extractJsonObject(text);
+  const json = extractJsonObject(text, "components");
   if (!json) return null;
 
   try {
@@ -117,7 +102,7 @@ function parsePlanFromResponse(text: string): DesignPlan | null {
 }
 
 function parseComponentFromResponse(text: string): { name: string; html: string; css: string } | null {
-  const json = extractJsonObject(text);
+  const json = extractJsonObject(text, "html");
   if (!json) return null;
 
   try {
@@ -235,14 +220,15 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       message: `Plan created: ${plan.components.length} components to build`,
     });
 
-    // Step 2: Create placeholder components on canvas with stable UUIDs
-    const componentIds = new Map<number, string>();
+    // Step 2: Create placeholder components on canvas, storing UUID mappings
+    const componentMap: ComponentMapping[] = [];
+
     for (const comp of plan.components) {
-      const id = crypto.randomUUID();
-      componentIds.set(comp.order, id);
+      const componentId = crypto.randomUUID();
+      componentMap.push({ id: componentId, name: comp.name, order: comp.order });
 
       const component: AVVComponent = {
-        id,
+        id: componentId,
         name: comp.name,
         status: "pending",
         html: "",
@@ -264,37 +250,23 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
-    const builderAgents = createBuilderAgents(plan);
-
-    // Wire image queue to broadcast results via WebSocket
-    imageQueue.onResult = (result: ImageResult) => {
-      connectionStore.broadcast(sessionId, {
-        type: "image:ready",
-        image: result,
-      });
-    };
-
     const buildPromises = plan.components.map(async (comp) => {
       const agentName = `builder-${comp.order}`;
-      const componentId = componentIds.get(comp.order)!;
+      const mapping = componentMap.find((m) => m.order === comp.order)!;
+      const builderAgent = createBuilderAgent(comp);
+
+      // Create a per-component MCP server with the request_image tool
+      // bound to this componentId and session for correct routing
+      const imageTool = createRequestImageTool(mapping.id, sessionId);
+      const imageServer = createSdkMcpServer({
+        name: "image",
+        tools: [imageTool],
+      });
 
       connectionStore.broadcast(sessionId, {
         type: "component:status",
-        componentId,
+        componentId: mapping.id,
         status: "generating",
-      });
-
-      const onImageResult = (result: ImageResult) => {
-        connectionStore.broadcast(sessionId, {
-          type: "image:ready",
-          image: result,
-        });
-      };
-
-      const imageToolDef = createRequestImageTool(comp.name, onImageResult);
-      const imageServer = createSdkMcpServer({
-        name: "avv-image",
-        tools: [imageToolDef],
       });
 
       let resultText = "";
@@ -303,9 +275,9 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         for await (const message of query({
           prompt: `Use the ${agentName} agent to build the "${comp.name}" component.`,
           options: {
-            allowedTools: ["Agent", "mcp__avv-image__request_image"],
-            agents: { [agentName]: builderAgents[agentName] },
-            mcpServers: { "avv-image": imageServer },
+            allowedTools: ["Agent"],
+            agents: { [agentName]: builderAgent },
+            mcpServers: { image: imageServer },
             maxTurns: 3,
           },
         })) {
@@ -321,7 +293,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         if (parsed) {
           connectionStore.broadcast(sessionId, {
             type: "component:updated",
-            componentId,
+            componentId: mapping.id,
             updates: {
               html: parsed.html,
               css: parsed.css,
@@ -331,7 +303,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         } else {
           connectionStore.broadcast(sessionId, {
             type: "component:status",
-            componentId,
+            componentId: mapping.id,
             status: "error",
           });
         }
@@ -340,7 +312,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         console.error(`[Agent] Builder ${agentName} failed:`, err);
         connectionStore.broadcast(sessionId, {
           type: "component:status",
-          componentId,
+          componentId: mapping.id,
           status: "error",
         });
       }

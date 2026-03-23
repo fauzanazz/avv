@@ -10,8 +10,6 @@ class ImageQueue {
   private queue: Array<{ request: ImageRequest; callback: ImageCallback }> = [];
   private processing = false;
 
-  onResult: ImageCallback | null = null;
-
   push(request: ImageRequest, callback: ImageCallback): void {
     this.queue.push({ request, callback });
     if (!this.processing) {
@@ -31,7 +29,6 @@ class ImageQueue {
     try {
       const result = await generateImage(item.request);
       item.callback(result);
-      this.onResult?.(result);
     } catch (err) {
       console.error(`[ImageQueue] Failed to generate image:`, err);
       const fallback: ImageResult = {
@@ -42,7 +39,6 @@ class ImageQueue {
         height: item.request.height,
       };
       item.callback(fallback);
-      this.onResult?.(fallback);
     }
 
     this.processNext();

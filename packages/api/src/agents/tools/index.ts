@@ -1,1 +1,1 @@
-export { requestImageTool } from "./request-image";
+export { createRequestImageTool } from "./request-image";
