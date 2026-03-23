@@ -23,11 +23,12 @@ app.route("/api", generateRoute);
 const port = Number(process.env.PORT) || 3001;
 const wsHandler = createWSHandler();
 
-Bun.serve<WSData>({
+const server = Bun.serve<WSData>({
   port,
   fetch(req, server) {
     const url = new URL(req.url);
 
+    // WebSocket upgrade
     if (url.pathname === "/ws") {
       const sessionId = url.searchParams.get("sessionId");
       const upgraded = server.upgrade(req, { data: { sessionId } });
@@ -35,6 +36,7 @@ Bun.serve<WSData>({
       return new Response("WebSocket upgrade failed", { status: 400 });
     }
 
+    // Regular HTTP
     return app.fetch(req);
   },
   websocket: wsHandler,

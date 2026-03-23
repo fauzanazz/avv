@@ -20,7 +20,7 @@ class SessionStore {
     return session ? { ...session } : undefined;
   }
 
-  update(id: string, updates: Partial<Omit<Session, "id" | "createdAt">>): Session | undefined {
+  update(id: string, updates: Partial<Omit<Session, "id">>): Session | undefined {
     const session = this.sessions.get(id);
     if (!session) return undefined;
     const updated = { ...session, ...updates };
