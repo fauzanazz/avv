@@ -8,6 +8,9 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 const customShapeUtils = [AVVComponentShapeUtil];
 
 function handleMount(editor: Editor) {
+  const existing = editor.getCurrentPageShapes().some((s) => s.type === AVV_COMPONENT_TYPE);
+  if (existing) return;
+
   editor.createShape({
     type: AVV_COMPONENT_TYPE,
     x: 100,
