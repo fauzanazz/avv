@@ -47,7 +47,6 @@ export function App() {
   const [spec, setSpec] = useState<string | null>(null);
   const [imageResult, setImageResult] = useState<ImageResult | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const editorRef = useRef<Editor | null>(null);
 
   useEffect(() => {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -87,11 +86,10 @@ export function App() {
     send({ type: "ultrathink:confirm" });
   }, [send]);
 
-  useImagePatching(editorRef.current, imageResult);
+  useImagePatching(editor, imageResult);
 
   const onMount = useCallback((ed: Editor) => {
     setEditor(ed);
-    editorRef.current = ed;
     handleMount(ed);
   }, []);
 
