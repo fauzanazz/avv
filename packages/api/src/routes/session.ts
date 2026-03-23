@@ -23,5 +23,9 @@ sessionRoute.delete("/sessions/:id", (c) => {
   if (!deleted) {
     return c.json({ success: false, error: "Session not found" } satisfies ApiResponse, 404);
   }
+<<<<<<< HEAD
   return c.json({ success: true, data: null } satisfies ApiResponse<null>);
+=======
+  return c.json({ success: true } satisfies ApiResponse);
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
 });

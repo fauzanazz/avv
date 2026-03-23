@@ -3,6 +3,7 @@ import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { orchestrate, cancelSession } from "./agents/orchestrator";
 =======
 import { orchestrate } from "./agents/orchestrator";
@@ -35,6 +36,16 @@ export function createWSHandler() {
       const { sessionId } = ws.data;
       console.log(`[WS] Client connected (session: ${sessionId ?? "none"})`);
 
+=======
+import { orchestrate } from "./agents/orchestrator";
+
+export function createWSHandler() {
+  return {
+    open(ws: ServerWebSocket<WSData>) {
+      const { sessionId } = ws.data;
+      console.log(`[WS] Client connected (session: ${sessionId ?? "none"})`);
+
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       if (sessionId) {
         connectionStore.add(sessionId, ws);
         connectionStore.send(ws, {
@@ -45,14 +56,23 @@ export function createWSHandler() {
     },
 
     message(ws: ServerWebSocket<WSData>, raw: string | Buffer) {
+<<<<<<< HEAD
       let msg: ClientMessage;
       try {
         msg = JSON.parse(typeof raw === "string" ? raw : raw.toString());
+=======
+      try {
+        const msg: ClientMessage = JSON.parse(
+          typeof raw === "string" ? raw : raw.toString()
+        );
+        handleClientMessage(ws, msg);
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       } catch {
         connectionStore.send(ws, {
           type: "error",
           message: "Invalid message format",
         });
+<<<<<<< HEAD
         return;
       }
 
@@ -64,15 +84,20 @@ export function createWSHandler() {
           type: "error",
           message: "Internal server error",
         });
+=======
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       }
     },
 
     close(ws: ServerWebSocket<WSData>) {
       console.log("[WS] Client disconnected");
+<<<<<<< HEAD
       const { sessionId } = ws.data;
       if (sessionId) {
         cleanupPendingAnswers(sessionId);
       }
+=======
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       connectionStore.remove(ws);
     },
   };
@@ -81,9 +106,12 @@ export function createWSHandler() {
 function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): void {
   switch (msg.type) {
     case "generate": {
+<<<<<<< HEAD
       // Remove socket from old session before joining a new one
       connectionStore.remove(ws);
 
+=======
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       const session = sessionStore.create(msg.prompt, msg.mode);
       connectionStore.add(session.id, ws);
       ws.data.sessionId = session.id;
@@ -94,6 +122,9 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       orchestrate({
         prompt: msg.prompt,
         mode: msg.mode,
@@ -102,6 +133,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         console.error("[Orchestrate] Fatal error:", err);
         connectionStore.send(ws, { type: "error", message: "Generation failed" });
       });
+<<<<<<< HEAD
 =======
       if (msg.mode === "ultrathink") {
         const answerPromise = new Promise<Map<string, string>>((resolve, reject) => {
@@ -175,6 +207,16 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         return;
       }
       cancelSession(msg.sessionId);
+=======
+      break;
+    }
+    case "iterate":
+      // Will be implemented in avv-component-iteration
+      console.log(`[WS] Iterate request: ${msg.componentId}`);
+      break;
+    case "cancel": {
+      sessionStore.update(msg.sessionId, { status: "error" });
+>>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       console.log(`[WS] Cancel request: ${msg.sessionId}`);
       break;
     }
