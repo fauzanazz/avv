@@ -258,7 +258,7 @@ Replace the build loop in the `orchestrate` function (Step 3):
 File: `packages/web/src/canvas/shapes/avv-component/ComponentPreview.tsx` (replace existing)
 
 ```typescript
-import { useRef, useEffect } from "react";
+import { useMemo } from "react";
 
 interface ComponentPreviewProps {
   html: string;
@@ -271,40 +271,30 @@ const TAILWIND_CDN = `<script src="https://cdn.tailwindcss.com"></script>`;
 
 /**
  * Renders generated HTML/CSS in a sandboxed iframe with Tailwind CSS support.
+ * Uses srcDoc to avoid needing allow-same-origin for contentDocument access.
  */
 export function ComponentPreview({ html, css, width, height }: ComponentPreviewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          ${TAILWIND_CDN}
-          <style>
-            *, *::before, *::after { box-sizing: border-box; }
-            body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
-            ${css}
-          </style>
-        </head>
-        <body>${html}</body>
-      </html>
-    `);
-    doc.close();
-  }, [html, css]);
+  const srcDoc = useMemo(
+    () => `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${TAILWIND_CDN}
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+      ${css}
+    </style>
+  </head>
+  <body>${html}</body>
+</html>`,
+    [html, css],
+  );
 
   return (
     <iframe
-      ref={iframeRef}
+      srcDoc={srcDoc}
       sandbox="allow-scripts"
       style={{
         width,
@@ -318,7 +308,7 @@ export function ComponentPreview({ html, css, width, height }: ComponentPreviewP
 }
 ```
 
-Note: sandbox includes `allow-scripts` since Tailwind CDN requires JavaScript execution. `allow-same-origin` is intentionally omitted so preview scripts cannot access the parent page's origin.
+Note: Uses `srcDoc` to set iframe content directly, avoiding the need for `allow-same-origin` (which `contentDocument.write()` would require). The `allow-scripts` sandbox flag enables Tailwind CDN JavaScript execution while `allow-same-origin` is intentionally omitted so preview scripts cannot access the parent page's origin.
 
 ### Tools barrel export
 
