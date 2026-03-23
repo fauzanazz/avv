@@ -37,8 +37,17 @@ describe("loadPrompt", () => {
 
   test("caches prompt on subsequent loads", () => {
     const first = loadPrompt("orchestrator");
-    const second = loadPrompt("orchestrator");
-    expect(first).toBe(second);
+
+    // Remove the file — if cache works, second load still succeeds from cache
+    const filePath = join(PROMPTS_DIR, "orchestrator.md");
+    const backupPath = join(PROMPTS_DIR, "orchestrator.md.bak");
+    renameSync(filePath, backupPath);
+    try {
+      const second = loadPrompt("orchestrator");
+      expect(second).toEqual(first);
+    } finally {
+      renameSync(backupPath, filePath);
+    }
   });
 
   test("throws for missing prompt file", () => {
@@ -76,12 +85,20 @@ describe("validatePrompts", () => {
 
 describe("clearPromptCache", () => {
   test("clears cache so prompts are re-read from disk", () => {
-    const first = loadPrompt("orchestrator");
+    loadPrompt("orchestrator");
     clearPromptCache();
-    const second = loadPrompt("orchestrator");
-    // Content should be equal but loaded fresh (we can't easily distinguish,
-    // but we verify no errors and content matches)
-    expect(second).toEqual(first);
+
+    // After clearing cache, the next load must read from disk again.
+    // Prove this by removing the file — a cache-only read would succeed,
+    // but a real disk read throws.
+    const filePath = join(PROMPTS_DIR, "orchestrator.md");
+    const backupPath = join(PROMPTS_DIR, "orchestrator.md.bak");
+    renameSync(filePath, backupPath);
+    try {
+      expect(() => loadPrompt("orchestrator")).toThrow("Missing prompt template");
+    } finally {
+      renameSync(backupPath, filePath);
+    }
   });
 });
 
