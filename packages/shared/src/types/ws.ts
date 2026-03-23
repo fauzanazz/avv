@@ -3,7 +3,7 @@ import type { AVVComponent, ComponentStatus } from "./canvas";
 export type ServerMessage =
   | { type: "session:started"; sessionId: string }
   | { type: "component:created"; component: AVVComponent }
-  | { type: "component:updated"; componentId: string; updates: Partial<AVVComponent> }
+  | { type: "component:updated"; componentId: string; updates: Omit<Partial<AVVComponent>, "id"> }
   | { type: "component:status"; componentId: string; status: ComponentStatus }
   | { type: "agent:log"; agentId: string; message: string }
   | { type: "generation:done"; sessionId: string }

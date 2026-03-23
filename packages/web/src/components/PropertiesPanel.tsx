@@ -13,7 +13,10 @@ export function PropertiesPanel({ editor, isOpen, onToggle }: PropertiesPanelPro
   const [showHtml, setShowHtml] = useState(false);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor) {
+      setProps(null);
+      return;
+    }
 
     const updateProps = () => {
       const selected = editor.getSelectedShapes();

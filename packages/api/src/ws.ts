@@ -3,5 +3,5 @@ import type { ServerMessage, ClientMessage } from "@avv/shared";
 export type { ServerMessage, ClientMessage };
 
 export function handleWebSocketUpgrade() {
-  // TODO: implement in avv-agent-canvas-bridge
+  throw new Error("handleWebSocketUpgrade is not yet implemented (see avv-agent-canvas-bridge)");
 }

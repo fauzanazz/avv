@@ -101,7 +101,7 @@ export class AVVComponentShapeUtil extends ShapeUtil<AVVComponentShape> {
         {/* HTML preview area */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           {status === "ready" && html ? (
-            <ComponentPreview html={html} css={css} width={w} height={h - 32} />
+            <ComponentPreview html={html} css={css} width={w} height={Math.max(0, h - 32)} />
           ) : (
             <div
               style={{
