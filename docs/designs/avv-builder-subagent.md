@@ -192,9 +192,9 @@ Replace the build loop in the `orchestrate` function (Step 3):
   // Step 3: Spawn builder subagents in parallel
   const builderAgents = createBuilderAgents(plan, sessionId);
 
-  const buildPromises = plan.components.map(async (comp) => {
+  const buildPromises = plan.components.map(async (comp, index) => {
     const agentName = `builder-${comp.order}`;
-    const componentId = comp.name; // Use name as ID for now
+    const componentId = `${comp.order}-${comp.name}`;
 
     connectionStore.broadcast(sessionId, {
       type: "component:status",
