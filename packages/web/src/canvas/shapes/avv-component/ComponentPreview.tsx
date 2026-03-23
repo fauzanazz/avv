@@ -42,7 +42,7 @@ export function ComponentPreview({ html, css, width, height }: ComponentPreviewP
   return (
     <iframe
       ref={iframeRef}
-      sandbox="allow-scripts allow-same-origin"
+      sandbox="allow-scripts"
       style={{
         width,
         height,

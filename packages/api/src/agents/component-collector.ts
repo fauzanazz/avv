@@ -8,20 +8,26 @@ export interface ComponentResult {
 
 /**
  * Extracts component results from agent SDK messages.
- * Looks for submit_component tool results in the message stream.
+ * Iterates in reverse to return the agent's final submission,
+ * not an intermediate draft.
  */
 export function extractComponentResult(messages: SDKMessage[]): ComponentResult | null {
-  for (const msg of messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
     // Check for tool results containing our component JSON
     const msgAny = msg as any;
     if (msgAny.message?.content) {
       for (const block of msgAny.message.content) {
         if (block.type === "tool_result" || block.type === "tool_use") {
-          // Try to find submit_component results
           if (block.name === "submit_component" && block.input) {
+            const html = block.input.html;
+            // Validate: only accept if html is a non-empty string
+            if (typeof html !== "string" || !html.trim()) {
+              continue;
+            }
             return {
               name: block.input.name,
-              html: block.input.html,
+              html,
               css: block.input.css || "",
             };
           }
@@ -33,13 +39,17 @@ export function extractComponentResult(messages: SDKMessage[]): ComponentResult 
     if ("result" in msg && typeof msg.result === "string") {
       try {
         const parsed = JSON.parse(msg.result);
-        if (parsed.html) return parsed as ComponentResult;
+        if (parsed.html && typeof parsed.html === "string" && parsed.html.trim()) {
+          return parsed as ComponentResult;
+        }
       } catch {
-        // Try regex extraction as last resort
         const match = msg.result.match(/\{[\s\S]*"html"[\s\S]*\}/);
         if (match) {
           try {
-            return JSON.parse(match[0]) as ComponentResult;
+            const parsed = JSON.parse(match[0]);
+            if (parsed.html && typeof parsed.html === "string" && parsed.html.trim()) {
+              return parsed as ComponentResult;
+            }
           } catch {
             continue;
           }
