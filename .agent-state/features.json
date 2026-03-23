@@ -1,0 +1,12 @@
+[
+  { "name": "shared-types", "description": "Type-safe shared types (Session, ApiResponse, GenerateRequest, ServerMessage, ClientMessage, AVVComponent, ComponentStatus) in @avv/shared", "passes": true },
+  { "name": "session-store", "description": "In-memory session store with create, get, update, list, delete operations", "passes": true },
+  { "name": "connection-store", "description": "WebSocket connection manager with per-session tracking, broadcast, and send", "passes": true },
+  { "name": "websocket-handler", "description": "Bun WebSocket handler with open/message/close and client message routing", "passes": true },
+  { "name": "health-route", "description": "GET /api/health endpoint returning {status: ok}", "passes": true },
+  { "name": "session-routes", "description": "Session CRUD routes: GET /api/sessions, GET /api/sessions/:id, DELETE /api/sessions/:id", "passes": true },
+  { "name": "generate-route", "description": "POST /api/generate endpoint with validation, creates session and returns it", "passes": true },
+  { "name": "entry-point", "description": "Hono app with CORS, logger, route mounting, and Bun.serve with WebSocket upgrade at /ws", "passes": true },
+  { "name": "route-organization", "description": "Clean route organization with Hono router groups and barrel exports", "passes": true },
+  { "name": "type-check", "description": "All packages pass tsc --noEmit type checking", "passes": true }
+]
