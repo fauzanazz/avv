@@ -20,7 +20,19 @@ export type ServerMessage =
 
 export type ClientMessage =
   | { type: "generate"; prompt: string; mode: "simple" | "ultrathink" }
+<<<<<<< HEAD
   | { type: "iterate"; componentId: string; instruction: string }
   | { type: "ultrathink:answer"; questionId: string; answer: string }
   | { type: "ultrathink:confirm" }
+=======
+  | {
+      type: "iterate";
+      componentId: string;
+      componentName: string;
+      currentHtml: string;
+      currentCss: string;
+      instruction: string;
+      iteration: number;
+    }
+>>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
   | { type: "cancel"; sessionId: string };

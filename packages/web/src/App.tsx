@@ -5,6 +5,7 @@ import type { ImageResult } from "@avv/shared";
 import { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./canvas/shapes";
 import { LayersPanel } from "./components/LayersPanel";
 import { PropertiesPanel } from "./components/PropertiesPanel";
+<<<<<<< HEAD
 import { ChatPanel } from "./components/ChatPanel";
 import { useImagePatching } from "./canvas/hooks/useImagePatching";
 
@@ -14,6 +15,33 @@ interface Question {
   questionId: string;
   question: string;
   options?: string[];
+=======
+import { useComponentContextMenu } from "./canvas/hooks/useComponentContextMenu";
+import { ComponentContextMenu } from "./components/ComponentContextMenu";
+import type { ClientMessage } from "@avv/shared";
+
+const customShapeUtils = [AVVComponentShapeUtil];
+
+function useWebSocket() {
+  const [ws, setWs] = useState<WebSocket | null>(null);
+
+  const connect = useCallback((sessionId: string) => {
+    const socket = new WebSocket(`ws://localhost:3000/ws?sessionId=${sessionId}`);
+    setWs(socket);
+    return socket;
+  }, []);
+
+  const send = useCallback(
+    (message: ClientMessage) => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    },
+    [ws]
+  );
+
+  return { ws, connect, send };
+>>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
 }
 
 function handleMount(editor: Editor) {
@@ -42,6 +70,7 @@ export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [layersOpen, setLayersOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(false);
+<<<<<<< HEAD
   const [chatOpen, setChatOpen] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [spec, setSpec] = useState<string | null>(null);
@@ -87,6 +116,10 @@ export function App() {
   }, [send]);
 
   useImagePatching(editor, imageResult);
+=======
+  const { send } = useWebSocket();
+  const { state: ctxMenu, handleContextMenu, close: closeCtxMenu } = useComponentContextMenu(editor);
+>>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
 
   const onMount = useCallback((ed: Editor) => {
     setEditor(ed);
@@ -95,7 +128,27 @@ export function App() {
 
   return (
     <div style={{ position: "fixed", inset: 0 }}>
-      <Tldraw shapeUtils={customShapeUtils} onMount={onMount} />
+      <div style={{ width: "100%", height: "100%", position: "relative" }} onContextMenu={handleContextMenu}>
+        <Tldraw shapeUtils={customShapeUtils} onMount={onMount} />
+
+        {ctxMenu.isOpen && (
+          <ComponentContextMenu
+            {...ctxMenu}
+            onIterate={(instruction) => {
+              send({
+                type: "iterate",
+                componentId: ctxMenu.componentId,
+                componentName: ctxMenu.componentName,
+                currentHtml: ctxMenu.currentHtml,
+                currentCss: ctxMenu.currentCss,
+                instruction,
+                iteration: ctxMenu.iteration,
+              });
+            }}
+            onClose={closeCtxMenu}
+          />
+        )}
+      </div>
       <LayersPanel editor={editor} isOpen={layersOpen} onToggle={() => setLayersOpen(!layersOpen)} />
       <PropertiesPanel editor={editor} isOpen={propsOpen} onToggle={() => setPropsOpen(!propsOpen)} />
       <ChatPanel

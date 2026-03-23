@@ -38,6 +38,7 @@ export function createWSHandler() {
 
 =======
 import { orchestrate } from "./agents/orchestrator";
+import { iterateComponent } from "./agents/iterator";
 
 export function createWSHandler() {
   return {
@@ -210,10 +211,27 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
 =======
       break;
     }
-    case "iterate":
-      // Will be implemented in avv-component-iteration
-      console.log(`[WS] Iterate request: ${msg.componentId}`);
+    case "iterate": {
+      const sid = ws.data.sessionId;
+      if (!sid) {
+        connectionStore.send(ws, { type: "error", message: "No active session" });
+        break;
+      }
+
+      iterateComponent({
+        sessionId: sid,
+        componentId: msg.componentId,
+        componentName: msg.componentName,
+        currentHtml: msg.currentHtml,
+        currentCss: msg.currentCss,
+        instruction: msg.instruction,
+        iteration: msg.iteration,
+      }).catch((err) => {
+        console.error("[Iterate] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Iteration failed" });
+      });
       break;
+    }
     case "cancel": {
       sessionStore.update(msg.sessionId, { status: "error" });
 >>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
