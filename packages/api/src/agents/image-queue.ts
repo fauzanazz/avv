@@ -7,9 +7,11 @@ type ImageCallback = (result: ImageResult) => void;
  * Builder agents push requests; the image agent processes them.
  */
 class ImageQueue {
-  private queue: Array<{ request: ImageRequest; callback: ImageCallback }> = [];
+  private queue: Array<{ request: ImageRequest; sessionId: string; callback: ImageCallback }> = [];
   private processing = false;
+  private listeners = new Map<string, ImageCallback>();
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
   onResult: ImageCallback | null = null;
@@ -17,6 +19,18 @@ class ImageQueue {
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
   push(request: ImageRequest, callback: ImageCallback): void {
     this.queue.push({ request, callback });
+=======
+  addListener(sessionId: string, callback: ImageCallback): void {
+    this.listeners.set(sessionId, callback);
+  }
+
+  removeListener(sessionId: string): void {
+    this.listeners.delete(sessionId);
+  }
+
+  push(request: ImageRequest, sessionId: string, callback: ImageCallback): void {
+    this.queue.push({ request, sessionId, callback });
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
     if (!this.processing) {
       this.processNext();
     }
@@ -35,9 +49,13 @@ class ImageQueue {
       const result = await generateImage(item.request);
       item.callback(result);
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       this.onResult?.(result);
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
+=======
+      this.listeners.get(item.sessionId)?.(result);
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
     } catch (err) {
       console.error(`[ImageQueue] Failed to generate image:`, err);
       const fallback: ImageResult = {
@@ -47,11 +65,20 @@ class ImageQueue {
         width: item.request.width,
         height: item.request.height,
       };
+<<<<<<< HEAD
       item.callback(fallback);
 <<<<<<< HEAD
 =======
       this.onResult?.(fallback);
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
+=======
+      try {
+        item.callback(fallback);
+      } catch (callbackErr) {
+        console.error("[ImageQueue] Fallback callback error:", callbackErr);
+      }
+      this.listeners.get(item.sessionId)?.(fallback);
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
     }
 
     this.processNext();
@@ -140,8 +167,12 @@ function createPlaceholderSvg(width: number, height: number, description: string
     <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${description.slice(0, 40)}</text>
   </svg>`;
 
+<<<<<<< HEAD
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
+=======
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
 }
 
 export const imageQueue = new ImageQueue();

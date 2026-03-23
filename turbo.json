@@ -10,7 +10,7 @@
       "outputs": ["dist/**"]
     },
     "type-check": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^type-check"]
     },
     "clean": {
       "cache": false

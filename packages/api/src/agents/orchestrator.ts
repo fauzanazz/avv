@@ -432,17 +432,18 @@ Place components in a vertical stack layout. First component at y=100, subsequen
 =======
   });
 
-  // Wire image queue to broadcast results via WebSocket
-  imageQueue.onResult = (result) => {
+  // Wire image queue to broadcast results to this session
+  imageQueue.addListener(sessionId, (result) => {
     connectionStore.broadcast(sessionId, {
       type: "image:ready",
       image: result,
     });
-  };
+  });
 
   await Promise.allSettled(buildPromises);
 
-  // Step 4: Mark session as done
+  // Cleanup listener and mark session as done
+  imageQueue.removeListener(sessionId);
   sessionStore.update(sessionId, { status: "done" });
   connectionStore.broadcast(sessionId, {
     type: "generation:done",

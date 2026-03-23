@@ -2,7 +2,32 @@ import type { ServerWebSocket } from "bun";
 import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
+<<<<<<< HEAD
 import { orchestrate, cancelSession } from "./agents/orchestrator";
+=======
+import { orchestrate } from "./agents/orchestrator";
+import { runUltraThinkFlow } from "./agents/ultrathink";
+
+/** How long to wait for user answers before aborting (5 minutes) */
+const ULTRATHINK_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Pending answer resolvers per session */
+const pendingAnswers = new Map<string, {
+  answers: Map<string, string>;
+  resolve: (answers: Map<string, string>) => void;
+  reject: (reason: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}>();
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
+
+function cleanupPendingAnswers(sessionId: string): void {
+  const pending = pendingAnswers.get(sessionId);
+  if (pending) {
+    clearTimeout(pending.timer);
+    pending.reject(new Error("UltraThink flow aborted: client disconnected or timed out"));
+    pendingAnswers.delete(sessionId);
+  }
+}
 
 export function createWSHandler() {
   return {
@@ -44,6 +69,10 @@ export function createWSHandler() {
 
     close(ws: ServerWebSocket<WSData>) {
       console.log("[WS] Client disconnected");
+      const { sessionId } = ws.data;
+      if (sessionId) {
+        cleanupPendingAnswers(sessionId);
+      }
       connectionStore.remove(ws);
     },
   };
@@ -64,6 +93,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         sessionId: session.id,
       });
 
+<<<<<<< HEAD
       orchestrate({
         prompt: msg.prompt,
         mode: msg.mode,
@@ -72,6 +102,58 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         console.error("[Orchestrate] Fatal error:", err);
         connectionStore.send(ws, { type: "error", message: "Generation failed" });
       });
+=======
+      if (msg.mode === "ultrathink") {
+        const answerPromise = new Promise<Map<string, string>>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            pendingAnswers.delete(session.id);
+            reject(new Error("UltraThink flow timed out waiting for answers"));
+          }, ULTRATHINK_TIMEOUT_MS);
+
+          pendingAnswers.set(session.id, {
+            answers: new Map(),
+            resolve,
+            reject,
+            timer,
+          });
+        });
+
+        runUltraThinkFlow(session.id, msg.prompt, () => answerPromise)
+          .then((enrichedPrompt) => {
+            return orchestrate({ prompt: enrichedPrompt, mode: "ultrathink", sessionId: session.id });
+          })
+          .catch((err) => {
+            console.error("[UltraThink] Failed:", err);
+            cleanupPendingAnswers(session.id);
+            connectionStore.send(ws, { type: "error", message: "UltraThink flow failed" });
+          });
+      } else {
+        orchestrate({
+          prompt: msg.prompt,
+          mode: msg.mode,
+          sessionId: session.id,
+        }).catch((err) => {
+          console.error("[Orchestrate] Fatal error:", err);
+          connectionStore.send(ws, { type: "error", message: "Generation failed" });
+        });
+      }
+      break;
+    }
+    case "ultrathink:answer": {
+      const pending = pendingAnswers.get(ws.data.sessionId ?? "");
+      if (pending) {
+        pending.answers.set(msg.questionId, msg.answer);
+      }
+      break;
+    }
+    case "ultrathink:confirm": {
+      const pending = pendingAnswers.get(ws.data.sessionId ?? "");
+      if (pending) {
+        clearTimeout(pending.timer);
+        pending.resolve(pending.answers);
+        pendingAnswers.delete(ws.data.sessionId ?? "");
+      }
+>>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
       break;
     }
     case "iterate":

@@ -23,5 +23,5 @@ sessionRoute.delete("/sessions/:id", (c) => {
   if (!deleted) {
     return c.json({ success: false, error: "Session not found" } satisfies ApiResponse, 404);
   }
-  return c.json({ success: true } satisfies ApiResponse);
+  return c.json({ success: true, data: null } satisfies ApiResponse<null>);
 });

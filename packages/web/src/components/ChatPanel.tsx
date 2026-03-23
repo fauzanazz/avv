@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Question {
   questionId: string;
@@ -17,6 +17,18 @@ interface ChatPanelProps {
 
 export function ChatPanel({ isOpen, questions, spec, onAnswer, onConfirm, onClose }: ChatPanelProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const prevQuestionsRef = useRef(questions);
+
+  useEffect(() => {
+    if (questions !== prevQuestionsRef.current && questions.length > 0) {
+      const prevIds = new Set(prevQuestionsRef.current.map((q) => q.questionId));
+      const hasNewQuestions = questions.some((q) => !prevIds.has(q.questionId));
+      if (hasNewQuestions && prevQuestionsRef.current.length > 0) {
+        setAnswers({});
+      }
+    }
+    prevQuestionsRef.current = questions;
+  }, [questions]);
 
   if (!isOpen) return null;
 

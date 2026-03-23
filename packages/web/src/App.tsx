@@ -46,7 +46,10 @@ export function App() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.hostname}:3000/ws`);
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsHost = window.location.hostname;
+    const wsPort = import.meta.env.DEV ? "3000" : window.location.port;
+    const ws = new WebSocket(`${wsProtocol}//${wsHost}${wsPort ? `:${wsPort}` : ""}/ws`);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
