@@ -6,28 +6,33 @@ import { loadPrompt } from "./prompt-loader";
  * Returns an enriched prompt that gives the orchestrator more to work with.
  */
 export async function enrichPrompt(userPrompt: string): Promise<string> {
-  const enricherPrompt = loadPrompt("enricher");
+  try {
+    const enricherPrompt = loadPrompt("enricher");
 
-  let enrichedResult = "";
+    let enrichedResult = "";
 
-  for await (const message of query({
-    prompt: `${enricherPrompt}
+    for await (const message of query({
+      prompt: `${enricherPrompt}
 
 ## User's original prompt:
 
 "${userPrompt}"
 
 Enrich this prompt. Output ONLY the enriched prompt text — no JSON, no markdown, no explanation.`,
-    options: {
-      allowedTools: [],
-      maxTurns: 1,
-      model: "haiku",
-    },
-  })) {
-    if ("result" in message) {
-      enrichedResult = message.result;
+      options: {
+        allowedTools: [],
+        maxTurns: 1,
+        model: "haiku",
+      },
+    })) {
+      if ("result" in message) {
+        enrichedResult = message.result;
+      }
     }
-  }
 
-  return enrichedResult.trim() || userPrompt;
+    return enrichedResult.trim() || userPrompt;
+  } catch (err) {
+    console.error("[Enricher] Failed, using original prompt:", err);
+    return userPrompt;
+  }
 }

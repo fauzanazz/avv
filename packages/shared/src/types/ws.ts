@@ -34,5 +34,9 @@ export type ClientMessage =
       instruction: string;
       iteration: number;
     }
+<<<<<<< HEAD
 >>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
   | { type: "cancel"; sessionId: string };
+=======
+  | { type: "cancel" };
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])

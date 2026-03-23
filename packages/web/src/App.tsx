@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState, useCallback, useRef, useEffect } from "react";
+=======
+import { useState, useCallback, useEffect } from "react";
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import type { ImageResult } from "@avv/shared";
@@ -22,20 +26,29 @@ import type { ClientMessage } from "@avv/shared";
 
 const customShapeUtils = [AVVComponentShapeUtil];
 
+function getWsUrl(sessionId?: string): string {
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.host;
+  const params = sessionId ? `?sessionId=${sessionId}` : "";
+  return `${proto}//${host}/ws${params}`;
+}
+
 function useWebSocket() {
   const [ws, setWs] = useState<WebSocket | null>(null);
 
-  const connect = useCallback((sessionId: string) => {
-    const socket = new WebSocket(`ws://localhost:3000/ws?sessionId=${sessionId}`);
+  const connect = useCallback((sessionId?: string) => {
+    const socket = new WebSocket(getWsUrl(sessionId));
     setWs(socket);
     return socket;
   }, []);
 
   const send = useCallback(
     (message: ClientMessage) => {
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.warn("[WS] Cannot send — WebSocket is not connected");
+        return;
       }
+      ws.send(JSON.stringify(message));
     },
     [ws]
   );
@@ -70,6 +83,7 @@ export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [layersOpen, setLayersOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(false);
+<<<<<<< HEAD
 <<<<<<< HEAD
   const [chatOpen, setChatOpen] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -118,6 +132,15 @@ export function App() {
   useImagePatching(editor, imageResult);
 =======
   const { send } = useWebSocket();
+=======
+  const { ws, connect, send } = useWebSocket();
+
+  useEffect(() => {
+    if (!ws) {
+      connect();
+    }
+  }, [ws, connect]);
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
   const { state: ctxMenu, handleContextMenu, close: closeCtxMenu } = useComponentContextMenu(editor);
 >>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
 

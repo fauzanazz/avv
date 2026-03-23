@@ -233,9 +233,19 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       break;
     }
     case "cancel": {
+<<<<<<< HEAD
       sessionStore.update(msg.sessionId, { status: "error" });
 >>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       console.log(`[WS] Cancel request: ${msg.sessionId}`);
+=======
+      const cancelSid = ws.data.sessionId;
+      if (!cancelSid) {
+        connectionStore.send(ws, { type: "error", message: "No active session" });
+        break;
+      }
+      sessionStore.update(cancelSid, { status: "error" });
+      console.log(`[WS] Cancel request: ${cancelSid}`);
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
       break;
     }
   }

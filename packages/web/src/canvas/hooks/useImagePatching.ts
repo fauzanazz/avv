@@ -59,8 +59,12 @@ export function useImagePatching(editor: Editor | null, imageResult: ImageResult
       if (props.componentId === imageResult.componentId && props.html?.includes("Generating image...")) {
 =======
       const props = shape.props as any;
+<<<<<<< HEAD
       if (props.agentId && props.html?.includes("Generating image...")) {
 >>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
+=======
+      if (props.agentId && shape.id === imageResult.componentId && props.html?.includes("Generating image...")) {
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
         const updatedHtml = props.html.replace(
           /data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+/g,
           imageResult.dataUri
@@ -75,10 +79,14 @@ export function useImagePatching(editor: Editor | null, imageResult: ImageResult
 <<<<<<< HEAD
           break;
         }
+<<<<<<< HEAD
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 =======
         }
 >>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
+=======
+        break;
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
       }
     }
   }, [editor, imageResult]);

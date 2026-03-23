@@ -38,7 +38,10 @@ export function ComponentContextMenu({
       {/* Menu */}
       <div
         className="fixed z-50 bg-white rounded-lg shadow-xl border border-slate-200 p-3 w-80"
-        style={{ left: x, top: y }}
+        style={{
+          left: Math.min(x, window.innerWidth - 330),
+          top: Math.min(y, window.innerHeight - 100),
+        }}
       >
         <p className="text-xs font-medium text-slate-500 mb-2">
           Iterate on: {componentName}

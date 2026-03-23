@@ -116,6 +116,7 @@ class ImageQueue {
       };
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       item.callback(fallback);
 <<<<<<< HEAD
 =======
@@ -134,6 +135,13 @@ class ImageQueue {
     this.completePending(item.sessionId);
 =======
       item.callback(fallback);
+=======
+      try {
+        item.callback(fallback);
+      } catch (cbErr) {
+        console.error(`[ImageQueue] Fallback callback threw:`, cbErr);
+      }
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
       this.onResult?.(fallback);
     }
 
@@ -239,8 +247,12 @@ function createPlaceholderSvg(width: number, height: number, description: string
     <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${description.slice(0, 40)}</text>
   </svg>`;
 
+<<<<<<< HEAD
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 >>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
+=======
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
 }
 
 export const imageQueue = new ImageQueue();

@@ -230,13 +230,14 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     message: `Plan created: ${plan.components.length} components to build`,
   });
 
-  // Step 2: Create placeholder components on canvas, build name→id map
-  const nameToId = new Map<string, string>();
+  // Step 2: Create placeholder components on canvas, storing UUIDs for later reference
+  const componentIds = new Map<number, string>();
   for (const comp of plan.components) {
-    const id = crypto.randomUUID();
-    nameToId.set(comp.name, id);
+    const componentId = crypto.randomUUID();
+    componentIds.set(comp.order, componentId);
+
     const component: AVVComponent = {
-      id,
+      id: componentId,
       name: comp.name,
       status: "pending",
       html: "",
@@ -255,11 +256,19 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     });
   }
 
+  // Wire image queue to broadcast results via WebSocket (before spawning builders to avoid race)
+  imageQueue.onResult = (result) => {
+    connectionStore.broadcast(sessionId, {
+      type: "image:ready",
+      image: result,
+    });
+  };
+
   // Step 3: Spawn builder subagents in parallel
   const builderAgents = createBuilderAgents(plan);
   const buildPromises = plan.components.map(async (comp) => {
     const agentName = `builder-${comp.order}`;
-    const componentId = nameToId.get(comp.name)!;
+    const componentId = componentIds.get(comp.order)!;
 
     connectionStore.broadcast(sessionId, {
       type: "component:status",
@@ -443,14 +452,6 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       image: result,
     });
   });
-
-  // Wire image queue to broadcast results via WebSocket
-  imageQueue.onResult = (result) => {
-    connectionStore.broadcast(sessionId, {
-      type: "image:ready",
-      image: result,
-    });
-  };
 
   await Promise.allSettled(buildPromises);
 

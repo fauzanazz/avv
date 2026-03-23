@@ -26,7 +26,11 @@
 >>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
   },
   "devDependencies": {
+<<<<<<< HEAD
     "@types/bun": "^1.3.11",
+=======
+    "@types/bun": "^1.2.0",
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
     "typescript": "^5.7"
   }
 }
