@@ -2,7 +2,7 @@ import type { ServerWebSocket } from "bun";
 import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
-import { orchestrate } from "./agents/orchestrator";
+import { orchestrate, cancelSession } from "./agents/orchestrator";
 
 export function createWSHandler() {
   return {
@@ -20,15 +20,24 @@ export function createWSHandler() {
     },
 
     message(ws: ServerWebSocket<WSData>, raw: string | Buffer) {
+      let msg: ClientMessage;
       try {
-        const msg: ClientMessage = JSON.parse(
-          typeof raw === "string" ? raw : raw.toString()
-        );
-        handleClientMessage(ws, msg);
+        msg = JSON.parse(typeof raw === "string" ? raw : raw.toString());
       } catch {
         connectionStore.send(ws, {
           type: "error",
           message: "Invalid message format",
+        });
+        return;
+      }
+
+      try {
+        handleClientMessage(ws, msg);
+      } catch (err) {
+        console.error("[WS] Handler error:", err);
+        connectionStore.send(ws, {
+          type: "error",
+          message: "Internal handler error",
         });
       }
     },
@@ -66,7 +75,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       console.log(`[WS] Iterate request: ${msg.componentId}`);
       break;
     case "cancel": {
-      sessionStore.update(msg.sessionId, { status: "error" });
+      cancelSession(msg.sessionId);
       console.log(`[WS] Cancel request: ${msg.sessionId}`);
       break;
     }

@@ -6,28 +6,50 @@ import { orchestrate } from "../agents/orchestrator";
 export const generateRoute = new Hono();
 
 generateRoute.post("/generate", async (c) => {
-  const body = await c.req.json<GenerateRequest>();
-
-  if (typeof body.prompt !== "string" || body.prompt.trim() === "") {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
     return c.json(
-      { success: false, error: "prompt must be a non-empty string" } satisfies ApiResponse,
+      { success: false, error: "Invalid JSON body" } satisfies ApiResponse,
       400
     );
   }
 
-  if (body.mode !== "simple" && body.mode !== "ultrathink") {
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    typeof (body as Record<string, unknown>).prompt !== "string" ||
+    typeof (body as Record<string, unknown>).mode !== "string"
+  ) {
+    return c.json(
+      { success: false, error: "prompt (string) and mode (string) are required" } satisfies ApiResponse,
+      400
+    );
+  }
+
+  const { prompt, mode } = body as GenerateRequest;
+
+  if (mode !== "simple" && mode !== "ultrathink") {
     return c.json(
       { success: false, error: "mode must be 'simple' or 'ultrathink'" } satisfies ApiResponse,
       400
     );
   }
 
-  const session = sessionStore.create(body.prompt, body.mode);
+  if (prompt.trim().length === 0) {
+    return c.json(
+      { success: false, error: "prompt must not be empty" } satisfies ApiResponse,
+      400
+    );
+  }
+
+  const session = sessionStore.create(prompt, mode);
 
   // Fire and forget — results stream via WebSocket
   orchestrate({
-    prompt: body.prompt,
-    mode: body.mode,
+    prompt,
+    mode,
     sessionId: session.id,
   }).catch((err) => {
     console.error("[Orchestrate] Fatal error:", err);

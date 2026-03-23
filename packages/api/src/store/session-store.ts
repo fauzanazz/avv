@@ -16,7 +16,8 @@ class SessionStore {
   }
 
   get(id: string): Session | undefined {
-    return this.sessions.get(id);
+    const session = this.sessions.get(id);
+    return session ? { ...session } : undefined;
   }
 
   update(id: string, updates: Partial<Omit<Session, "id" | "createdAt">>): Session | undefined {
