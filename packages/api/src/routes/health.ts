@@ -1,0 +1,12 @@
+import { Hono } from "hono";
+import type { ApiResponse } from "@avv/shared";
+
+export const healthRoute = new Hono();
+
+healthRoute.get("/health", (c) => {
+  const response: ApiResponse<{ status: string }> = {
+    success: true,
+    data: { status: "ok" },
+  };
+  return c.json(response);
+});
