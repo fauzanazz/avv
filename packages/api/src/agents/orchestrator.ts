@@ -1,5 +1,5 @@
 import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
-import type { DesignPlan, AVVComponent, ImageResult } from "@avv/shared";
+import type { DesignPlan, AVVComponent } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { enrichPrompt } from "./enricher";
@@ -17,12 +17,6 @@ export function cancelSession(sessionId: string): void {
     controller.abort();
     activeControllers.delete(sessionId);
   }
-}
-
-interface ComponentMapping {
-  id: string;
-  name: string;
-  order: number;
 }
 
 function createBuilderAgent(
@@ -56,14 +50,12 @@ Build the "${comp.name}" component for a web page.
 /**
  * Extract JSON from LLM response using brace-depth counting
  * instead of a greedy regex that can over-capture.
- * Skips braces inside JSON string literals to avoid premature termination
- * (e.g. HTML content like `<div>}</div>` or CSS braces inside values).
+ * Skips braces inside JSON string literals to avoid premature termination.
  */
 function extractJsonObject(text: string, requiredKey: string): string | null {
   const keyIndex = text.indexOf(`"${requiredKey}"`);
   if (keyIndex === -1) return null;
 
-  // Walk backwards to find the opening brace
   let start = -1;
   for (let i = keyIndex - 1; i >= 0; i--) {
     if (text[i] === "{") {
@@ -73,15 +65,14 @@ function extractJsonObject(text: string, requiredKey: string): string | null {
   }
   if (start === -1) return null;
 
-  // Walk forward counting brace depth, skipping content inside JSON strings
   let depth = 0;
   let inString = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
 
     if (inString) {
-      if (ch === "\\" ) {
-        i++; // skip escaped character
+      if (ch === "\\") {
+        i++;
       } else if (ch === '"') {
         inString = false;
       }
@@ -123,7 +114,6 @@ export interface OrchestrateOptions {
 export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOptions): Promise<void> {
   let finalPrompt = prompt;
 
-  // Simple mode: auto-enrich the prompt
   if (mode === "simple") {
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
@@ -153,7 +143,6 @@ export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOption
   try {
     sessionStore.update(sessionId, { status: "generating" });
 
-    // Step 1: Generate the component plan
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
       agentId: "orchestrator",
@@ -248,17 +237,19 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
+    // Sort by component order for deterministic build ordering
+    const sortedComponents = [...plan.components].sort((a, b) => a.order - b.order);
+
     const mcpServer = createSdkMcpServer({
       name: "avv-tools",
       tools: [submitComponentTool],
     });
 
-    const buildPromises = plan.components.map(async (comp) => {
+    const buildPromises = sortedComponents.map(async (comp) => {
       const agentName = `builder-${comp.order}`;
       const componentId = nameToId.get(comp.name)!;
       const builderAgent = createBuilderAgent(comp);
 
-      // Create a per-component MCP server with the request_image tool
       const imageTool = createRequestImageTool(componentId, sessionId);
       const imageServer = createSdkMcpServer({
         name: "avv-image",
