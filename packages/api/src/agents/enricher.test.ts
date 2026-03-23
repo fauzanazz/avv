@@ -4,6 +4,8 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 const mockQuery = mock();
 mock.module("@anthropic-ai/claude-agent-sdk", () => ({
   query: mockQuery,
+  tool: (...args: unknown[]) => ({ name: args[0], description: args[1] }),
+  createSdkMcpServer: (opts: unknown) => opts,
 }));
 
 // Import after mocking

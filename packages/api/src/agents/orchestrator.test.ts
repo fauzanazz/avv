@@ -4,6 +4,8 @@ import { describe, it, expect, mock, beforeEach, spyOn } from "bun:test";
 const mockQuery = mock();
 mock.module("@anthropic-ai/claude-agent-sdk", () => ({
   query: mockQuery,
+  tool: (...args: unknown[]) => ({ name: args[0], description: args[1] }),
+  createSdkMcpServer: (opts: unknown) => opts,
 }));
 
 // Mock enrichPrompt
@@ -90,6 +92,67 @@ describe("orchestrate", () => {
         msg.type === "agent:log" && msg.agentId === "enricher"
     );
     expect(enricherCalls.length).toBe(2);
+
+    broadcastSpy.mockRestore();
+  });
+
+  it("correctly parses JSON with braces inside string values", async () => {
+    mockEnrichPrompt.mockResolvedValue("enriched");
+
+    const planJson = JSON.stringify({
+      title: "Test",
+      summary: "Test",
+      components: [
+        {
+          name: "Code",
+          description: "Code section",
+          htmlTag: "section",
+          order: 0,
+          width: 800,
+          height: 400,
+          x: 100,
+          y: 100,
+          designGuidance: "Show code",
+        },
+      ],
+    });
+
+    // Component JSON with unbalanced braces inside string values
+    const componentJson = JSON.stringify({
+      name: "Code",
+      html: "<pre>function() { return '}'; }</pre>",
+      css: ".code { font-family: monospace; }",
+    });
+
+    let callCount = 0;
+    mockQuery.mockImplementation(() => {
+      callCount++;
+      async function* gen() {
+        if (callCount === 1) {
+          yield { result: planJson };
+        } else {
+          yield { result: componentJson };
+        }
+      }
+      return gen();
+    });
+
+    const broadcastSpy = spyOn(connectionStore, "broadcast");
+    const session = sessionStore.create("code block", "simple");
+
+    await orchestrate({
+      prompt: "code block",
+      mode: "simple",
+      sessionId: session.id,
+    });
+
+    // Verify the component was updated with the full HTML (not truncated at first })
+    const updateCalls = broadcastSpy.mock.calls.filter(
+      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
+    );
+    expect(updateCalls.length).toBe(1);
+    const updates = (updateCalls[0][1] as any).updates;
+    expect(updates.html).toContain("function() { return '}'; }");
 
     broadcastSpy.mockRestore();
   });
