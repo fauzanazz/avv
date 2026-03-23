@@ -1,11 +1,18 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./canvas/shapes";
 import { LayersPanel } from "./components/LayersPanel";
 import { PropertiesPanel } from "./components/PropertiesPanel";
+import { ChatPanel } from "./components/ChatPanel";
 
 const customShapeUtils = [AVVComponentShapeUtil];
+
+interface Question {
+  questionId: string;
+  question: string;
+  options?: string[];
+}
 
 function handleMount(editor: Editor) {
   const existing = editor.getCurrentPageShapes().some((s) => s.type === AVV_COMPONENT_TYPE);
@@ -33,6 +40,42 @@ export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [layersOpen, setLayersOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [spec, setSpec] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket(`ws://${window.location.hostname}:3000/ws`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "ultrathink:question") {
+        setChatOpen(true);
+        setQuestions((prev) => [...prev, { questionId: msg.questionId, question: msg.question, options: msg.options }]);
+      }
+      if (msg.type === "ultrathink:spec") {
+        setSpec(msg.spec);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
+  const send = useCallback((data: Record<string, unknown>) => {
+    wsRef.current?.send(JSON.stringify(data));
+  }, []);
+
+  const handleAnswer = useCallback((questionId: string, answer: string) => {
+    send({ type: "ultrathink:answer", questionId, answer });
+  }, [send]);
+
+  const handleConfirm = useCallback(() => {
+    send({ type: "ultrathink:confirm" });
+  }, [send]);
 
   const onMount = useCallback((ed: Editor) => {
     setEditor(ed);
@@ -44,6 +87,14 @@ export function App() {
       <Tldraw shapeUtils={customShapeUtils} onMount={onMount} />
       <LayersPanel editor={editor} isOpen={layersOpen} onToggle={() => setLayersOpen(!layersOpen)} />
       <PropertiesPanel editor={editor} isOpen={propsOpen} onToggle={() => setPropsOpen(!propsOpen)} />
+      <ChatPanel
+        isOpen={chatOpen}
+        questions={questions}
+        spec={spec}
+        onAnswer={handleAnswer}
+        onConfirm={handleConfirm}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }
