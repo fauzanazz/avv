@@ -14,20 +14,29 @@ interface UseAVVWebSocketReturn {
   sessionId: string | null;
 }
 
+function getDefaultWsUrl(): string {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.hostname}:3001/ws`;
+}
+
 export function useAVVWebSocket({
-  url = `ws://${window.location.hostname}:3001/ws`,
+  url = getDefaultWsUrl(),
   onMessage,
   autoReconnect = true,
   reconnectIntervalMs = 3000,
 }: UseAVVWebSocketOptions): UseAVVWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intentionalCloseRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
   const connect = useCallback(() => {
-    const wsUrl = sessionId ? `${url}?sessionId=${sessionId}` : url;
+    const sid = sessionIdRef.current;
+    const wsUrl = sid ? `${url}?sessionId=${sid}` : url;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
@@ -39,6 +48,7 @@ export function useAVVWebSocket({
       try {
         const msg: ServerMessage = JSON.parse(event.data);
         if (msg.type === "session:started") {
+          sessionIdRef.current = msg.sessionId;
           setSessionId(msg.sessionId);
         }
         onMessageRef.current(msg);
@@ -50,8 +60,8 @@ export function useAVVWebSocket({
     ws.onclose = () => {
       console.log("[WS] Disconnected");
       setIsConnected(false);
-      if (autoReconnect) {
-        setTimeout(connect, reconnectIntervalMs);
+      if (autoReconnect && !intentionalCloseRef.current) {
+        reconnectTimerRef.current = setTimeout(connect, reconnectIntervalMs);
       }
     };
 
@@ -61,11 +71,17 @@ export function useAVVWebSocket({
     };
 
     wsRef.current = ws;
-  }, [url, sessionId, autoReconnect, reconnectIntervalMs]);
+  }, [url, autoReconnect, reconnectIntervalMs]);
 
   useEffect(() => {
+    intentionalCloseRef.current = false;
     connect();
     return () => {
+      intentionalCloseRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       wsRef.current?.close();
     };
   }, [connect]);

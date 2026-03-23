@@ -11,7 +11,7 @@ export function PromptBar({ onGenerate, isConnected }: PromptBarProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !isConnected) return;
     onGenerate(prompt.trim(), mode);
     setPrompt("");
   };

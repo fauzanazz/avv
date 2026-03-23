@@ -75,7 +75,7 @@ export class AVVComponentShapeUtil extends BaseBoxShapeUtil<AVVComponentShape> {
               border: "none",
               pointerEvents: "none",
             }}
-            sandbox="allow-scripts"
+            sandbox=""
             title={name}
           />
         </div>

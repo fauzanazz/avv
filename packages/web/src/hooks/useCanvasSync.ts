@@ -52,11 +52,19 @@ export function useCanvasSync(editor: Editor | null): UseCanvasSyncReturn {
             return;
           }
 
-          editor.updateShape({
+          const { x, y, width, height, ...rest } = msg.updates;
+          const shapeUpdate: Record<string, unknown> = {
             id: shapeId,
             type: AVV_COMPONENT_TYPE,
-            props: msg.updates as Partial<AVVComponentProps>,
-          });
+          };
+          if (x !== undefined) shapeUpdate.x = x;
+          if (y !== undefined) shapeUpdate.y = y;
+          const propUpdates: Partial<AVVComponentProps> = { ...rest };
+          if (width !== undefined) propUpdates.w = width;
+          if (height !== undefined) propUpdates.h = height;
+          shapeUpdate.props = propUpdates;
+
+          editor.updateShape(shapeUpdate as Parameters<typeof editor.updateShape>[0]);
           break;
         }
 

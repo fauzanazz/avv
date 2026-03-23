@@ -37,7 +37,7 @@ interface UseAVVWebSocketReturn {
 }
 
 export function useAVVWebSocket({
-  url = `ws://${window.location.hostname}:3001/ws`,
+  url = getDefaultWsUrl(),
   onMessage,
   autoReconnect = true,
   reconnectIntervalMs = 3000,
