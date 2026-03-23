@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { validatePrompts } from "./agents/prompt-loader";
 import { healthRoute } from "./routes/health";
 import { sessionRoute } from "./routes/session";
 import { generateRoute } from "./routes/generate";
 import { createWSHandler } from "./ws";
 import type { WSData } from "./store";
+import { validatePrompts } from "./agents/prompt-loader";
 
 // Validate all prompt templates exist before starting
 validatePrompts();
