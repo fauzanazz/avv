@@ -5,6 +5,7 @@ import { sessionStore } from "../store";
 import { enrichPrompt } from "./enricher";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
+import { imageQueue } from "./image-queue";
 
 /** Track active abort controllers by session ID */
 const activeControllers = new Map<string, AbortController>();
@@ -264,6 +265,15 @@ Place components in a vertical stack layout. First component at y=100, subsequen
 
     // Step 3: Spawn builder subagents in parallel
     const builderAgents = createBuilderAgents(plan);
+
+    // Wire image queue to broadcast results via WebSocket
+    imageQueue.onResult = (result: ImageResult) => {
+      connectionStore.broadcast(sessionId, {
+        type: "image:ready",
+        image: result,
+      });
+    };
+
     const buildPromises = plan.components.map(async (comp) => {
       const agentName = `builder-${comp.order}`;
       const componentId = componentIds.get(comp.order)!;
