@@ -7,9 +7,9 @@ export const generateRoute = new Hono();
 generateRoute.post("/generate", async (c) => {
   const body = await c.req.json<GenerateRequest>();
 
-  if (!body.prompt || !body.mode) {
+  if (typeof body.prompt !== "string" || body.prompt.trim() === "") {
     return c.json(
-      { success: false, error: "prompt and mode are required" } satisfies ApiResponse,
+      { success: false, error: "prompt must be a non-empty string" } satisfies ApiResponse,
       400
     );
   }
