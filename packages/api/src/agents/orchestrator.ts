@@ -62,6 +62,8 @@ If you need images, use the mcp__image__request_image tool to generate them.`,
 /**
  * Extract JSON from LLM response using brace-depth counting
  * instead of a greedy regex that can over-capture.
+ * Skips braces inside JSON string literals to avoid premature termination
+ * (e.g. HTML content like `<div>}</div>` or CSS braces inside values).
  */
 function extractJsonObject(text: string, requiredKey: string): string | null {
   const keyIndex = text.indexOf(`"${requiredKey}"`);
@@ -77,12 +79,29 @@ function extractJsonObject(text: string, requiredKey: string): string | null {
   }
   if (start === -1) return null;
 
-  // Walk forward counting brace depth to find the matching close
+  // Walk forward counting brace depth, skipping content inside JSON strings
   let depth = 0;
+  let inString = false;
   for (let i = start; i < text.length; i++) {
-    if (text[i] === "{") depth++;
-    else if (text[i] === "}") depth--;
-    if (depth === 0) return text.slice(start, i + 1);
+    const ch = text[i];
+
+    if (inString) {
+      if (ch === "\\" ) {
+        i++; // skip escaped character
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
   }
 
   return null;

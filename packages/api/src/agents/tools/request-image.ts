@@ -15,8 +15,8 @@ export function createRequestImageTool(componentId: string, sessionId: string) {
     "Request an AI-generated image for this component. Returns immediately with a placeholder URL. The real image will be injected later via WebSocket.",
     {
       description: z.string().describe("Description of the image to generate"),
-      width: z.number().default(400).describe("Image width in pixels"),
-      height: z.number().default(300).describe("Image height in pixels"),
+      width: z.number().int().min(16).max(2048).default(400).describe("Image width in pixels (16–2048)"),
+      height: z.number().int().min(16).max(2048).default(300).describe("Image height in pixels (16–2048)"),
       style: z.enum(["photo", "illustration", "icon", "abstract"]).default("photo").describe("Image style"),
     },
     async (args) => {
