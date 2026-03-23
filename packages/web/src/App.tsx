@@ -1,6 +1,9 @@
+import { useState, useCallback } from "react";
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./canvas/shapes";
+import { LayersPanel } from "./components/LayersPanel";
+import { PropertiesPanel } from "./components/PropertiesPanel";
 
 const customShapeUtils = [AVVComponentShapeUtil];
 
@@ -24,9 +27,20 @@ function handleMount(editor: Editor) {
 }
 
 export function App() {
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [layersOpen, setLayersOpen] = useState(true);
+  const [propsOpen, setPropsOpen] = useState(false);
+
+  const onMount = useCallback((ed: Editor) => {
+    setEditor(ed);
+    handleMount(ed);
+  }, []);
+
   return (
     <div style={{ position: "fixed", inset: 0 }}>
-      <Tldraw shapeUtils={customShapeUtils} onMount={handleMount} />
+      <Tldraw shapeUtils={customShapeUtils} onMount={onMount} />
+      <LayersPanel editor={editor} isOpen={layersOpen} onToggle={() => setLayersOpen(!layersOpen)} />
+      <PropertiesPanel editor={editor} isOpen={propsOpen} onToggle={() => setPropsOpen(!propsOpen)} />
     </div>
   );
 }
