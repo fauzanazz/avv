@@ -3,7 +3,7 @@ import { join } from "path";
 
 const PROMPTS_DIR = join(import.meta.dir, "..", "..", "prompts");
 
-const REQUIRED_PROMPTS = ["orchestrator", "builder", "enricher", "ultrathink"] as const;
+const REQUIRED_PROMPTS = ["orchestrator", "builder", "conversation"] as const;
 type PromptName = (typeof REQUIRED_PROMPTS)[number];
 
 const promptCache = new Map<string, string>();

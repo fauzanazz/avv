@@ -2,7 +2,7 @@ import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from
 import type { DesignPlan, AVVPage, PageSection } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
-import { enrichPrompt } from "./enricher";
+import { planStore } from "../store/plan-store";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
 import { submitComponentTool } from "./tools/submit-component";
@@ -112,24 +112,7 @@ export interface OrchestrateOptions {
 }
 
 export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOptions): Promise<void> {
-  let finalPrompt = prompt;
-
-  if (mode === "simple") {
-    connectionStore.broadcast(sessionId, {
-      type: "agent:log",
-      agentId: "enricher",
-      message: "Enriching prompt with UI/UX best practices...",
-    });
-
-    finalPrompt = await enrichPrompt(prompt);
-
-    connectionStore.broadcast(sessionId, {
-      type: "agent:log",
-      agentId: "enricher",
-      message: "Prompt enriched. Starting design...",
-    });
-  }
-
+  const finalPrompt = prompt;
   const orchestratorPrompt = loadPrompt("orchestrator");
   const abortController = new AbortController();
   activeControllers.set(sessionId, abortController);
@@ -231,18 +214,24 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
 
     connectionStore.broadcast(sessionId, { type: "page:created", page });
 
+    // Save plans for retry support — match by array index (sections derived 1:1 from plan.sections)
+    for (let i = 0; i < plan.sections.length; i++) {
+      planStore.save(pageId, sections[i].id, plan.sections[i]);
+    }
+
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
-    const sortedSections = [...plan.sections].sort((a, b) => a.order - b.order);
+    // Map plan sections to page sections by array index (1:1 from the same .map() call)
+    const planToSection = new Map(plan.sections.map((sp, i) => [sp, sections[i]]));
 
     const mcpServer = createSdkMcpServer({
       name: "avv-tools",
       tools: [submitComponentTool],
     });
 
-    const buildPromises = sortedSections.map(async (sectionPlan) => {
-      const section = sections.find((s) => s.name === sectionPlan.name)!;
+    const buildPromises = plan.sections.map(async (sectionPlan) => {
+      const section = planToSection.get(sectionPlan)!;
       const agentName = `builder-${sectionPlan.order}`;
       const builderAgent = createBuilderAgent(sectionPlan);
 
