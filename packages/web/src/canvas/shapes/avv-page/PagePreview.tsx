@@ -11,6 +11,11 @@ interface PagePreviewProps {
 
 const TAILWIND_CDN = `<script src="https://cdn.tailwindcss.com"></script>`;
 
+// Restrict iframe scripts to Tailwind CDN + inline (height reporter).
+// allow-scripts is required for Tailwind to process utility classes;
+// allow-same-origin is intentionally omitted so the iframe cannot access parent storage/cookies.
+const CSP = `<meta http-equiv="Content-Security-Policy" content="script-src https://cdn.tailwindcss.com 'unsafe-inline'; default-src 'none'; style-src 'unsafe-inline'; img-src * data:; font-src *;">`;
+
 /**
  * Script injected into iframe that reports content height to parent.
  * Uses ResizeObserver on <body> to detect height changes.
@@ -54,6 +59,7 @@ export function PagePreview({ html, css, width, height, onContentHeight }: PageP
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${CSP}
     ${TAILWIND_CDN}
     <style>
       *, *::before, *::after { box-sizing: border-box; }

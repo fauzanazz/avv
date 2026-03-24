@@ -1,139 +1,127 @@
-import { useState, useCallback } from "react";
-import { Tldraw, type Editor } from "tldraw";
+import { useState, useCallback, useRef } from "react";
+import { Tldraw, useValue, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
-import type { ServerMessage, ImageResult } from "@avv/shared";
+import type { ServerMessage } from "@avv/shared";
 import { AVVPageShapeUtil } from "./canvas/shapes";
 import { useAVVWebSocket } from "./hooks/useAVVWebSocket";
 import { useCanvasSync } from "./hooks/useCanvasSync";
 import { useAgentLogs } from "./hooks/useAgentLogs";
-import { useImagePatching } from "./canvas/hooks/useImagePatching";
-import { useComponentContextMenu } from "./canvas/hooks/useComponentContextMenu";
-import { PromptBar } from "./components/PromptBar";
-import { StatusBar } from "./components/StatusBar";
-import { LayersPanel } from "./components/LayersPanel";
-import { PropertiesPanel } from "./components/PropertiesPanel";
-import { ChatPanel } from "./components/ChatPanel";
-import { ComponentContextMenu } from "./components/ComponentContextMenu";
+import { TopBar } from "./components/layout/TopBar";
+import { LeftSidebar } from "./components/layout/LeftSidebar";
+import { RightPanel } from "./components/layout/RightPanel";
 
 const customShapeUtils = [AVVPageShapeUtil];
-
-interface Question {
-  questionId: string;
-  question: string;
-  options?: string[];
-}
+const MAX_QUEUED_MESSAGES = 200;
 
 export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [layersOpen, setLayersOpen] = useState(true);
-  const [propsOpen, setPropsOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [spec, setSpec] = useState<string | null>(null);
-  const [imageResult, setImageResult] = useState<ImageResult | null>(null);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
 
-  // Canvas sync and agent logs hooks
+  // Queue-based message passing: ref accumulates messages, state triggers drain
+  const messageQueueRef = useRef<ServerMessage[]>([]);
+  const [messageSeq, setMessageSeq] = useState(0);
+
   const { handleMessage: handleCanvasMessage } = useCanvasSync(editor);
-  const { logs, handleMessage: handleLogMessage } = useAgentLogs();
+  const { handleMessage: handleLogMessage } = useAgentLogs();
 
-  // Image patching — replaces placeholder SVGs with real images
-  useImagePatching(editor, imageResult);
-
-  // Central message handler — routes server messages to the right handler
   const onMessage = useCallback(
     (msg: ServerMessage) => {
       handleCanvasMessage(msg);
       handleLogMessage(msg);
-
-      if (msg.type === "ultrathink:question") {
-        setChatOpen(true);
-        setQuestions((prev) => [
-          ...prev,
-          { questionId: msg.questionId, question: msg.question, options: msg.options },
-        ]);
+      const queue = messageQueueRef.current;
+      queue.push(msg);
+      // Cap queue size so it doesn't grow unbounded when the right panel is closed
+      if (queue.length > MAX_QUEUED_MESSAGES) {
+        queue.splice(0, queue.length - MAX_QUEUED_MESSAGES);
       }
-      if (msg.type === "ultrathink:spec") {
-        setSpec(msg.spec);
-      }
-      if (msg.type === "image:ready") {
-        setImageResult(msg.image);
-      }
+      setMessageSeq((s) => s + 1);
     },
     [handleCanvasMessage, handleLogMessage]
   );
 
-  const { send, isConnected, sessionId } = useAVVWebSocket({ onMessage });
-
-  // PromptBar handler
-  const handleGenerate = useCallback(
-    (prompt: string, mode: "simple" | "ultrathink") => {
-      // Reset ultrathink state for new generation
-      setQuestions([]);
-      setSpec(null);
-      send({ type: "generate", prompt, mode });
-    },
-    [send]
-  );
-
-  // ChatPanel handlers
-  const handleAnswer = useCallback(
-    (questionId: string, answer: string) => {
-      send({ type: "ultrathink:answer", questionId, answer });
-    },
-    [send]
-  );
-
-  const handleConfirm = useCallback(() => {
-    send({ type: "ultrathink:confirm" });
-  }, [send]);
-
-  // Context menu
-  const { state: ctxMenu, handleContextMenu, close: closeCtxMenu } = useComponentContextMenu(editor);
-
-  const onMount = useCallback((ed: Editor) => {
-    setEditor(ed);
+  const drainMessages = useCallback((): ServerMessage[] => {
+    return messageQueueRef.current.splice(0);
   }, []);
 
+  const { send, isConnected, sessionId } = useAVVWebSocket({ onMessage });
+
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column" }}>
-      <PromptBar onGenerate={handleGenerate} isConnected={isConnected} />
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-900">
+      <TopBar
+        editor={editor}
+        isConnected={isConnected}
+        leftOpen={leftOpen}
+        rightOpen={rightOpen}
+        onToggleLeft={() => setLeftOpen(!leftOpen)}
+        onToggleRight={() => setRightOpen(!rightOpen)}
+      />
 
-      <div style={{ flex: 1, position: "relative" }} onContextMenu={handleContextMenu}>
-        <Tldraw shapeUtils={customShapeUtils} onMount={onMount} />
-
-        {ctxMenu.isOpen && (
-          <ComponentContextMenu
-            {...ctxMenu}
-            onIterate={(instruction) => {
-              send({
-                type: "iterate",
-                pageId: ctxMenu.pageId,
-                sectionId: ctxMenu.sectionId,
-                sectionName: ctxMenu.sectionName,
-                currentHtml: ctxMenu.currentHtml,
-                currentCss: ctxMenu.currentCss,
-                instruction,
-                iteration: ctxMenu.iteration,
-              });
-            }}
-            onClose={closeCtxMenu}
+      <div className="flex flex-1 min-h-0">
+        {leftOpen && (
+          <LeftSidebar
+            editor={editor}
+            onClose={() => setLeftOpen(false)}
+            onRetry={(pageId, sectionId) => send({ type: "retry", pageId, sectionId })}
           />
         )}
 
-        <LayersPanel editor={editor} isOpen={layersOpen} onToggle={() => setLayersOpen(!layersOpen)} />
-        <PropertiesPanel editor={editor} isOpen={propsOpen} onToggle={() => setPropsOpen(!propsOpen)} />
+        <main
+          className="flex-1 relative overflow-hidden"
+          style={{
+            background: "#1c1917",
+            backgroundImage: "radial-gradient(circle, #44403c 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        >
+          <div className="absolute inset-0">
+            <Tldraw
+              shapeUtils={customShapeUtils}
+              onMount={setEditor}
+              hideUi
+              persistenceKey="avv-canvas"
+            />
+          </div>
+
+          <ZoomControls editor={editor} />
+
+          {!leftOpen && (
+            <button onClick={() => setLeftOpen(true)} className="absolute top-3 left-3 z-20 p-2 bg-stone-800/80 backdrop-blur text-stone-400 rounded-lg hover:text-white">
+              <span className="material-symbols-outlined text-sm">menu</span>
+            </button>
+          )}
+          {!rightOpen && (
+            <button onClick={() => setRightOpen(true)} className="absolute top-3 right-3 z-20 p-2 bg-stone-800/80 backdrop-blur text-stone-400 rounded-lg hover:text-white">
+              <span className="material-symbols-outlined text-sm">auto_awesome</span>
+            </button>
+          )}
+        </main>
+
+        {rightOpen && (
+          <RightPanel
+            messageSeq={messageSeq}
+            drainMessages={drainMessages}
+            isConnected={isConnected}
+            sessionId={sessionId}
+            onSend={send}
+            onClose={() => setRightOpen(false)}
+          />
+        )}
       </div>
+    </div>
+  );
+}
 
-      <StatusBar logs={logs} isConnected={isConnected} sessionId={sessionId} />
+function ZoomControls({ editor }: { editor: Editor | null }) {
+  const zoomLevel = useValue("zoom", () => editor?.getZoomLevel() ?? 1, [editor]);
 
-      <ChatPanel
-        isOpen={chatOpen}
-        questions={questions}
-        spec={spec}
-        onAnswer={handleAnswer}
-        onConfirm={handleConfirm}
-        onClose={() => setChatOpen(false)}
-      />
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-stone-800/90 backdrop-blur text-white px-4 py-2 rounded-full flex items-center gap-4 text-xs font-[Public_Sans] z-20">
+      <button onClick={() => editor?.zoomOut()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">remove</span></button>
+      <span>{Math.round(zoomLevel * 100)}%</span>
+      <button onClick={() => editor?.zoomIn()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">add</span></button>
+      <div className="w-px h-4 bg-stone-600" />
+      <button onClick={() => editor?.zoomToFit({ animation: { duration: 300 } })} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">fit_screen</span></button>
     </div>
   );
 }
