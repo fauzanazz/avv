@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   ShapeUtil,
   HTMLContainer,
@@ -118,6 +118,15 @@ function AVVPageComponent({ shape }: { shape: AVVPageShape }) {
     [editor, shape.id, h]
   );
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const previewHeight = Math.max(0, h - TITLE_BAR_HEIGHT);
+
   return (
     <HTMLContainer
       style={{
@@ -149,7 +158,7 @@ function AVVPageComponent({ shape }: { shape: AVVPageShape }) {
             html={stitchedHtml}
             css={stitchedCss}
             width={w}
-            height={h - TITLE_BAR_HEIGHT}
+            height={previewHeight}
             onContentHeight={handleContentHeight}
           />
         ) : (

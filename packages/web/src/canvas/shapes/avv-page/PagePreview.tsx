@@ -72,7 +72,11 @@ export function PagePreview({ html, css, width, height, onContentHeight }: PageP
     if (!onContentHeight) return;
 
     const handler = (event: MessageEvent) => {
-      if (event.data?.type === "avv-iframe-height" && typeof event.data.height === "number") {
+      if (
+        event.source === iframeRef.current?.contentWindow &&
+        event.data?.type === "avv-iframe-height" &&
+        typeof event.data.height === "number"
+      ) {
         onContentHeight(event.data.height);
       }
     };
