@@ -21,12 +21,12 @@
   { "name": "review-fix-unbounded-messages", "description": "Fix serverMessages growing without bounds in App.tsx", "passes": true },
   { "name": "review-fix-reactive-zoom", "description": "Fix zoom percentage display not reactive to editor state changes", "passes": true },
   { "name": "review-fix-stale-hasstarted", "description": "Fix hasStarted restored from stale persisted sessionId after reload", "passes": true },
-  { "name": "review-fix-batched-messages", "description": "Fix only last server message ingested, batched messages dropped", "passes": true },
+  { "name": "review-fix-batched-messages", "description": "Fix batched messages dropped — replaced latestMessage with queue+drain pattern", "passes": true },
   { "name": "review-fix-export-return-values", "description": "Export functions return success/failure; TopBar checks before showing toast", "passes": true },
   { "name": "review-fix-sort-mutation", "description": "Fix in-place .sort() on state-derived arrays in LeftSidebar", "passes": true },
-  { "name": "review-fix-section-validation", "description": "Validate parsed PageSection items in parse-sections.ts", "passes": true },
+  { "name": "review-fix-section-validation", "description": "Validate and normalize all PageSection fields in parse-sections.ts", "passes": true },
   { "name": "review-fix-session-validation", "description": "Validate parsed session shape in session-persistence.ts loadSession", "passes": true },
-  { "name": "review-fix-iframe-sandbox", "description": "Remove allow-scripts from option preview iframe in RightPanel", "passes": true },
+  { "name": "review-fix-iframe-sandbox", "description": "Remove allow-scripts from option preview iframe; add CSP to PagePreview", "passes": true },
   { "name": "review-fix-blob-url-revocation", "description": "Delay blob URL revocation after download click in export.ts", "passes": true },
   { "name": "review-fix-toast-overlap", "description": "Fix toast timer overlap in TopBar showToast", "passes": true }
 ]
