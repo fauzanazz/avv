@@ -16,12 +16,8 @@ class SessionStore {
   }
 
   get(id: string): Session | undefined {
-<<<<<<< HEAD
     const session = this.sessions.get(id);
     return session ? { ...session } : undefined;
-=======
-    return this.sessions.get(id);
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
   }
 
   update(id: string, updates: Partial<Omit<Session, "id">>): Session | undefined {

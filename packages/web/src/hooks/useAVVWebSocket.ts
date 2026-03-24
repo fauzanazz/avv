@@ -16,7 +16,7 @@ interface UseAVVWebSocketReturn {
 
 function getDefaultWsUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:3001/ws`;
+  return `${protocol}//${window.location.host}/ws`;
 }
 
 export function useAVVWebSocket({

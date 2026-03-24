@@ -2,12 +2,9 @@ import type { ServerWebSocket } from "bun";
 import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { orchestrate, cancelSession } from "./agents/orchestrator";
-=======
-import { orchestrate } from "./agents/orchestrator";
 import { runUltraThinkFlow } from "./agents/ultrathink";
+import { iterateComponent } from "./agents/iterator";
 
 /** How long to wait for user answers before aborting (5 minutes) */
 const ULTRATHINK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -19,7 +16,6 @@ const pendingAnswers = new Map<string, {
   reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 }>();
->>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
 
 function cleanupPendingAnswers(sessionId: string): void {
   const pending = pendingAnswers.get(sessionId);
@@ -36,17 +32,6 @@ export function createWSHandler() {
       const { sessionId } = ws.data;
       console.log(`[WS] Client connected (session: ${sessionId ?? "none"})`);
 
-=======
-import { orchestrate } from "./agents/orchestrator";
-import { iterateComponent } from "./agents/iterator";
-
-export function createWSHandler() {
-  return {
-    open(ws: ServerWebSocket<WSData>) {
-      const { sessionId } = ws.data;
-      console.log(`[WS] Client connected (session: ${sessionId ?? "none"})`);
-
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       if (sessionId) {
         connectionStore.add(sessionId, ws);
         connectionStore.send(ws, {
@@ -57,23 +42,14 @@ export function createWSHandler() {
     },
 
     message(ws: ServerWebSocket<WSData>, raw: string | Buffer) {
-<<<<<<< HEAD
       let msg: ClientMessage;
       try {
         msg = JSON.parse(typeof raw === "string" ? raw : raw.toString());
-=======
-      try {
-        const msg: ClientMessage = JSON.parse(
-          typeof raw === "string" ? raw : raw.toString()
-        );
-        handleClientMessage(ws, msg);
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       } catch {
         connectionStore.send(ws, {
           type: "error",
           message: "Invalid message format",
         });
-<<<<<<< HEAD
         return;
       }
 
@@ -85,20 +61,15 @@ export function createWSHandler() {
           type: "error",
           message: "Internal server error",
         });
-=======
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       }
     },
 
     close(ws: ServerWebSocket<WSData>) {
       console.log("[WS] Client disconnected");
-<<<<<<< HEAD
       const { sessionId } = ws.data;
       if (sessionId) {
         cleanupPendingAnswers(sessionId);
       }
-=======
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       connectionStore.remove(ws);
     },
   };
@@ -107,12 +78,9 @@ export function createWSHandler() {
 function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): void {
   switch (msg.type) {
     case "generate": {
-<<<<<<< HEAD
       // Remove socket from old session before joining a new one
       connectionStore.remove(ws);
 
-=======
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
       const session = sessionStore.create(msg.prompt, msg.mode);
       connectionStore.add(session.id, ws);
       ws.data.sessionId = session.id;
@@ -122,20 +90,6 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         sessionId: session.id,
       });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
-      orchestrate({
-        prompt: msg.prompt,
-        mode: msg.mode,
-        sessionId: session.id,
-      }).catch((err) => {
-        console.error("[Orchestrate] Fatal error:", err);
-        connectionStore.send(ws, { type: "error", message: "Generation failed" });
-      });
-<<<<<<< HEAD
-=======
       if (msg.mode === "ultrathink") {
         const answerPromise = new Promise<Map<string, string>>((resolve, reject) => {
           const timer = setTimeout(() => {
@@ -157,8 +111,6 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
           })
           .catch((err) => {
             console.error("[UltraThink] Failed:", err);
-            // Clean up without rejecting — the promise may not have been awaited yet,
-            // and rejecting it would create an unhandled promise rejection.
             const pending = pendingAnswers.get(session.id);
             if (pending) {
               clearTimeout(pending.timer);
@@ -192,23 +144,6 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         pending.resolve(pending.answers);
         pendingAnswers.delete(ws.data.sessionId ?? "");
       }
->>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
-      break;
-    }
-    case "iterate":
-      console.log(`[WS] Iterate request: ${msg.componentId}`);
-      break;
-    case "cancel": {
-      // Validate that the cancel request matches the socket's bound session
-      if (ws.data.sessionId !== msg.sessionId) {
-        connectionStore.send(ws, {
-          type: "error",
-          message: "Cannot cancel a session you are not connected to",
-        });
-        return;
-      }
-      cancelSession(msg.sessionId);
-=======
       break;
     }
     case "iterate": {
@@ -233,19 +168,14 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       break;
     }
     case "cancel": {
-<<<<<<< HEAD
-      sessionStore.update(msg.sessionId, { status: "error" });
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
-      console.log(`[WS] Cancel request: ${msg.sessionId}`);
-=======
       const cancelSid = ws.data.sessionId;
       if (!cancelSid) {
         connectionStore.send(ws, { type: "error", message: "No active session" });
         break;
       }
+      cancelSession(cancelSid);
       sessionStore.update(cancelSid, { status: "error" });
       console.log(`[WS] Cancel request: ${cancelSid}`);
->>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
       break;
     }
   }

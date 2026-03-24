@@ -10,21 +10,13 @@ export type ServerMessage =
   | { type: "generation:done"; sessionId: string }
   | { type: "image:ready"; image: ImageResult }
   | { type: "image:generating"; requestId: string; componentId: string }
-<<<<<<< HEAD
   | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
   | { type: "ultrathink:spec"; spec: string }
   | { type: "ultrathink:ready"; enrichedPrompt: string }
-=======
->>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
   | { type: "error"; message: string };
 
 export type ClientMessage =
   | { type: "generate"; prompt: string; mode: "simple" | "ultrathink" }
-<<<<<<< HEAD
-  | { type: "iterate"; componentId: string; instruction: string }
-  | { type: "ultrathink:answer"; questionId: string; answer: string }
-  | { type: "ultrathink:confirm" }
-=======
   | {
       type: "iterate";
       componentId: string;
@@ -34,9 +26,6 @@ export type ClientMessage =
       instruction: string;
       iteration: number;
     }
-<<<<<<< HEAD
->>>>>>> 44fff73 (feat: implement right-click context menu for component iteration [FAU-42])
-  | { type: "cancel"; sessionId: string };
-=======
+  | { type: "ultrathink:answer"; questionId: string; answer: string }
+  | { type: "ultrathink:confirm" }
   | { type: "cancel" };
->>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])

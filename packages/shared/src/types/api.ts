@@ -1,14 +1,8 @@
-<<<<<<< HEAD
 /** Success response with data */
 export interface ApiSuccess<T> {
   success: true;
   data: T;
 }
-=======
-export type ApiResponse<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
->>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
 
 /** Success response without data */
 export interface ApiSuccessEmpty {

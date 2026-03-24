@@ -5,11 +5,8 @@ import { healthRoute } from "./routes/health";
 import { sessionRoute } from "./routes/session";
 import { generateRoute } from "./routes/generate";
 import { createWSHandler } from "./ws";
-<<<<<<< HEAD
 import type { WSData } from "./store";
 import { validatePrompts } from "./agents/prompt-loader";
-=======
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
 
 // Validate all prompt templates exist before starting
 validatePrompts();
@@ -23,18 +20,11 @@ app.route("/api", healthRoute);
 app.route("/api", sessionRoute);
 app.route("/api", generateRoute);
 
-<<<<<<< HEAD
 const parsed = Number(process.env.PORT);
 const port = Number.isNaN(parsed) ? 3001 : parsed;
 const wsHandler = createWSHandler();
 
 const server = Bun.serve<WSData>({
-=======
-const port = Number(process.env.PORT) || 3001;
-const wsHandler = createWSHandler();
-
-const server = Bun.serve({
->>>>>>> 72ce0f7 (feat: add backend API infrastructure with session store, connection store, routes, and WebSocket handler [FAU-36])
   port,
   fetch(req, server) {
     const url = new URL(req.url);

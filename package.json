@@ -5,7 +5,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "type-check": "turbo type-check",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "smoke": "bash scripts/smoke-test.sh"
   },
   "devDependencies": {
     "turbo": "^2",

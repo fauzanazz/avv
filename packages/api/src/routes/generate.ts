@@ -6,16 +6,10 @@ import { orchestrate } from "../agents/orchestrator";
 export const generateRoute = new Hono();
 
 generateRoute.post("/generate", async (c) => {
-<<<<<<< HEAD
   let body: unknown;
   try {
     body = await c.req.json();
   } catch {
-=======
-  const body = await c.req.json<GenerateRequest>();
-
-  if (!body.prompt || typeof body.prompt !== "string" || !body.mode) {
->>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
     return c.json(
       { success: false, error: "Invalid JSON body" } satisfies ApiResponse,
       400
