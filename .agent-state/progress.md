@@ -51,6 +51,16 @@ Addressed all 17 violations from cubic-dev-ai first review:
 ### PagePreview.tsx — CSP for iframe security
 - **Improvement**: Added Content-Security-Policy meta tag restricting scripts to Tailwind CDN + inline only. `allow-same-origin` remains intentionally omitted.
 
+## Session 4: Review Fixes (third review — 1 issue)
+
+### App.tsx — Cap message queue size
+- **Issue**: `messageQueueRef` grows unbounded when right panel is closed (not draining)
+- **Fix**: Cap queue at `MAX_QUEUED_MESSAGES` (200). When exceeded, oldest messages are trimmed via `splice`. This prevents memory growth from sustained websocket traffic while retaining enough history for the chat panel to display when reopened.
+
+### canvas.ts — Remove duplicate PageSection interface
+- **Issue**: Two `PageSection` interfaces in `shared/types/canvas.ts` — second missing `prompt`, `agentId`, `iteration` fields
+- **Fix**: Removed the duplicate incomplete definition; kept the full one (lines 4-14).
+
 ## Verification
 - `pnpm build` — passes
 

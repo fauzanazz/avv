@@ -28,5 +28,7 @@
   { "name": "review-fix-session-validation", "description": "Validate parsed session shape in session-persistence.ts loadSession", "passes": true },
   { "name": "review-fix-iframe-sandbox", "description": "Remove allow-scripts from option preview iframe; add CSP to PagePreview", "passes": true },
   { "name": "review-fix-blob-url-revocation", "description": "Delay blob URL revocation after download click in export.ts", "passes": true },
-  { "name": "review-fix-toast-overlap", "description": "Fix toast timer overlap in TopBar showToast", "passes": true }
+  { "name": "review-fix-toast-overlap", "description": "Fix toast timer overlap in TopBar showToast", "passes": true },
+  { "name": "review-fix-unbounded-queue", "description": "Cap message queue at 200 entries to prevent unbounded growth when right panel is closed", "passes": true },
+  { "name": "review-fix-duplicate-pagesection", "description": "Remove duplicate PageSection interface from shared/types/canvas.ts", "passes": true }
 ]
