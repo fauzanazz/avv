@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+
+# Agent orchestrator state (auto-generated)
+.agent-state/
