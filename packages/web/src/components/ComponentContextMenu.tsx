@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from "react";
 interface ComponentContextMenuProps {
   x: number;
   y: number;
-  componentId: string;
-  componentName: string;
+  pageId: string;
+  sectionId: string;
+  sectionName: string;
   currentHtml: string;
   currentCss: string;
   iteration: number;
@@ -13,7 +14,7 @@ interface ComponentContextMenuProps {
 }
 
 export function ComponentContextMenu({
-  x, y, componentName, onIterate, onClose,
+  x, y, sectionName, onIterate, onClose,
 }: ComponentContextMenuProps) {
   const [instruction, setInstruction] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +45,7 @@ export function ComponentContextMenu({
         }}
       >
         <p className="text-xs font-medium text-slate-500 mb-2">
-          Iterate on: {componentName}
+          Iterate on: {sectionName}
         </p>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input

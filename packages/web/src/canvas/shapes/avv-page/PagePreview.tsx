@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-interface ComponentPreviewProps {
+interface PagePreviewProps {
   html: string;
   css: string;
   width: number;
@@ -10,10 +10,10 @@ interface ComponentPreviewProps {
 const TAILWIND_CDN = `<script src="https://cdn.tailwindcss.com"></script>`;
 
 /**
- * Renders generated HTML/CSS in a sandboxed iframe with Tailwind CSS support.
- * Uses srcDoc to avoid needing allow-same-origin for contentDocument access.
+ * Renders the full stitched page HTML in a single iframe.
+ * All sections are rendered together so they share visual context.
  */
-export function ComponentPreview({ html, css, width, height }: ComponentPreviewProps) {
+export function PagePreview({ html, css, width, height }: PagePreviewProps) {
   const srcDoc = useMemo(
     () => `<!DOCTYPE html>
 <html>
@@ -23,13 +23,14 @@ export function ComponentPreview({ html, css, width, height }: ComponentPreviewP
     ${TAILWIND_CDN}
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+      section { width: 100%; }
       ${css}
     </style>
   </head>
   <body>${html}</body>
 </html>`,
-    [html, css],
+    [html, css]
   );
 
   return (
@@ -42,7 +43,7 @@ export function ComponentPreview({ html, css, width, height }: ComponentPreviewP
         border: "none",
         pointerEvents: "none",
       }}
-      title="Component Preview"
+      title="Page Preview"
     />
   );
 }

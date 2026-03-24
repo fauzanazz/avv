@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import type { Editor, TLShapeId } from "tldraw";
-import { AVV_COMPONENT_TYPE, type AVVComponentProps } from "../canvas/shapes";
+import type { PageSection } from "@avv/shared";
+import { AVV_PAGE_TYPE, type AVVPageProps, parseSections } from "../canvas/shapes";
 
-interface LayerItem {
-  id: TLShapeId;
-  name: string;
+interface PageLayer {
+  shapeId: TLShapeId;
+  title: string;
   status: string;
+  sections: PageSection[];
 }
 
 interface LayersPanelProps {
@@ -15,28 +17,33 @@ interface LayersPanelProps {
 }
 
 export function LayersPanel({ editor, isOpen, onToggle }: LayersPanelProps) {
-  const [layers, setLayers] = useState<LayerItem[]>([]);
-  const [selectedId, setSelectedId] = useState<TLShapeId | null>(null);
+  const [pages, setPages] = useState<PageLayer[]>([]);
+  const [selectedShapeId, setSelectedShapeId] = useState<TLShapeId | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editor) return;
 
     const updateLayers = () => {
       const shapes = editor.getCurrentPageShapes();
-      const avvLayers = shapes
-        .filter((s) => s.type === AVV_COMPONENT_TYPE)
-        .map((s) => ({
-          id: s.id,
-          name: (s.props as AVVComponentProps).name,
-          status: (s.props as AVVComponentProps).status,
-        }));
-      setLayers(avvLayers);
+      const pageLayers = shapes
+        .filter((s) => s.type === AVV_PAGE_TYPE)
+        .map((s) => {
+          const props = s.props as AVVPageProps;
+          return {
+            shapeId: s.id,
+            title: props.title,
+            status: props.status,
+            sections: parseSections(props.sectionsJson).sort((a, b) => a.order - b.order),
+          };
+        });
+      setPages(pageLayers);
     };
 
     const updateSelection = () => {
       const selected = editor.getSelectedShapes();
-      const avvSelected = selected.find((s) => s.type === AVV_COMPONENT_TYPE);
-      setSelectedId(avvSelected?.id ?? null);
+      const avvSelected = selected.find((s) => s.type === AVV_PAGE_TYPE);
+      setSelectedShapeId(avvSelected?.id ?? null);
     };
 
     const unsub = editor.store.listen(updateLayers, { scope: "document" });
@@ -51,10 +58,17 @@ export function LayersPanel({ editor, isOpen, onToggle }: LayersPanelProps) {
     };
   }, [editor]);
 
-  const handleSelectLayer = (id: TLShapeId) => {
+  const handleSelectPage = (id: TLShapeId) => {
     if (!editor) return;
+    setSelectedSectionId(null);
     editor.select(id);
     editor.zoomToSelection({ animation: { duration: 300 } });
+  };
+
+  const handleSelectSection = (shapeId: TLShapeId, sectionId: string) => {
+    if (!editor) return;
+    setSelectedSectionId(sectionId);
+    editor.select(shapeId);
   };
 
   const STATUS_COLORS: Record<string, string> = {
@@ -83,20 +97,36 @@ export function LayersPanel({ editor, isOpen, onToggle }: LayersPanelProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {layers.length === 0 ? (
-          <p className="p-3 text-xs text-slate-400">No components yet</p>
+        {pages.length === 0 ? (
+          <p className="p-3 text-xs text-slate-400">No pages yet</p>
         ) : (
-          layers.map((layer) => (
-            <button
-              key={layer.id}
-              onClick={() => handleSelectLayer(layer.id)}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors ${
-                selectedId === layer.id ? "bg-blue-50 text-blue-700" : "text-slate-600"
-              }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[layer.status] || "bg-slate-300"}`} />
-              <span className="truncate">{layer.name}</span>
-            </button>
+          pages.map((page) => (
+            <div key={page.shapeId}>
+              {/* Page row */}
+              <button
+                onClick={() => handleSelectPage(page.shapeId)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors font-semibold ${
+                  selectedShapeId === page.shapeId && !selectedSectionId ? "bg-blue-50 text-blue-700" : "text-slate-600"
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[page.status] || "bg-slate-300"}`} />
+                <span className="truncate">{page.title}</span>
+              </button>
+
+              {/* Section rows (indented children) */}
+              {page.sections.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => handleSelectSection(page.shapeId, section.id)}
+                  className={`w-full flex items-center gap-2 pl-7 pr-3 py-1.5 text-left text-xs hover:bg-slate-50 transition-colors ${
+                    selectedSectionId === section.id ? "bg-blue-50 text-blue-700" : "text-slate-500"
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[section.status] || "bg-slate-300"}`} />
+                  <span className="truncate">{section.name}</span>
+                </button>
+              ))}
+            </div>
           ))
         )}
       </div>

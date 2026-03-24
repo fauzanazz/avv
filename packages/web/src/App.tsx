@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Tldraw, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import type { ServerMessage, ImageResult } from "@avv/shared";
-import { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./canvas/shapes";
+import { AVVPageShapeUtil } from "./canvas/shapes";
 import { useAVVWebSocket } from "./hooks/useAVVWebSocket";
 import { useCanvasSync } from "./hooks/useCanvasSync";
 import { useAgentLogs } from "./hooks/useAgentLogs";
@@ -15,34 +15,12 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ComponentContextMenu } from "./components/ComponentContextMenu";
 
-const customShapeUtils = [AVVComponentShapeUtil];
+const customShapeUtils = [AVVPageShapeUtil];
 
 interface Question {
   questionId: string;
   question: string;
   options?: string[];
-}
-
-function handleMount(editor: Editor) {
-  const existing = editor.getCurrentPageShapes().some((s) => s.type === AVV_COMPONENT_TYPE);
-  if (existing) return;
-
-  editor.createShape({
-    type: AVV_COMPONENT_TYPE,
-    x: 100,
-    y: 100,
-    props: {
-      w: 400,
-      h: 300,
-      name: "Hero Section",
-      status: "ready" as const,
-      html: '<div style="padding:40px;text-align:center"><h1 style="font-size:32px;font-weight:bold;margin-bottom:16px">Welcome to AVV</h1><p style="font-size:16px;color:#64748b">AI Visual Vibe Engineer</p></div>',
-      css: "",
-      prompt: "A hero section for AVV",
-      agentId: "demo",
-      iteration: 0,
-    },
-  });
 }
 
 export function App() {
@@ -114,7 +92,6 @@ export function App() {
 
   const onMount = useCallback((ed: Editor) => {
     setEditor(ed);
-    handleMount(ed);
   }, []);
 
   return (
@@ -130,8 +107,9 @@ export function App() {
             onIterate={(instruction) => {
               send({
                 type: "iterate",
-                componentId: ctxMenu.componentId,
-                componentName: ctxMenu.componentName,
+                pageId: ctxMenu.pageId,
+                sectionId: ctxMenu.sectionId,
+                sectionName: ctxMenu.sectionName,
                 currentHtml: ctxMenu.currentHtml,
                 currentCss: ctxMenu.currentCss,
                 instruction,

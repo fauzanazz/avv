@@ -1,2 +1,2 @@
-export { AVVComponentShapeUtil, AVV_COMPONENT_TYPE } from "./avv-component";
-export type { AVVComponentShape, AVVComponentProps } from "./avv-component";
+export { AVVPageShapeUtil, AVV_PAGE_TYPE, parseSections, serializeSections } from "./avv-page";
+export type { AVVPageShape, AVVPageProps } from "./avv-page";

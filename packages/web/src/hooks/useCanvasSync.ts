@@ -1,87 +1,110 @@
 import { useCallback, useRef } from "react";
 import { createShapeId, type Editor, type TLShapeId } from "tldraw";
 import type { ServerMessage } from "@avv/shared";
-import { AVV_COMPONENT_TYPE, type AVVComponentProps } from "../canvas/shapes";
+import { AVV_PAGE_TYPE, type AVVPageProps, parseSections, serializeSections } from "../canvas/shapes";
 
-/** Maps server component IDs to tldraw shape IDs */
-type ComponentShapeMap = Map<string, TLShapeId>;
+/** Maps server page IDs to tldraw shape IDs */
+type PageShapeMap = Map<string, TLShapeId>;
 
 interface UseCanvasSyncReturn {
   handleMessage: (msg: ServerMessage) => void;
 }
 
 export function useCanvasSync(editor: Editor | null): UseCanvasSyncReturn {
-  const componentMapRef = useRef<ComponentShapeMap>(new Map());
+  const pageMapRef = useRef<PageShapeMap>(new Map());
 
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
       if (!editor) return;
 
       switch (msg.type) {
-        case "component:created": {
-          const comp = msg.component;
+        case "page:created": {
+          const page = msg.page;
           const shapeId = createShapeId();
-
-          componentMapRef.current.set(comp.id, shapeId);
-          componentMapRef.current.set(comp.name, shapeId);
+          pageMapRef.current.set(page.id, shapeId);
 
           editor.createShape({
             id: shapeId,
-            type: AVV_COMPONENT_TYPE,
-            x: comp.x,
-            y: comp.y,
+            type: AVV_PAGE_TYPE,
+            x: 100,
+            y: 100,
             props: {
-              w: comp.width,
-              h: comp.height,
-              name: comp.name,
-              status: comp.status,
-              html: comp.html,
-              css: comp.css,
-              prompt: comp.prompt,
-              agentId: comp.agentId,
-              iteration: comp.iteration,
-            } satisfies AVVComponentProps,
+              w: 800,
+              h: 600,
+              title: page.title,
+              status: page.status,
+              sectionsJson: JSON.stringify(page.sections),
+              prompt: page.prompt,
+              mode: page.mode,
+            } satisfies AVVPageProps,
           });
           break;
         }
 
-        case "component:updated": {
-          const shapeId = componentMapRef.current.get(msg.componentId);
-          if (!shapeId) {
-            console.warn(`[CanvasSync] Unknown component: ${msg.componentId}`);
-            return;
-          }
+        case "section:updated": {
+          const shapeId = pageMapRef.current.get(msg.pageId);
+          if (!shapeId) return;
 
-          const { x, y, width, height, ...rest } = msg.updates;
-          const shapeUpdate: Record<string, unknown> = {
+          const shape = editor.getShape(shapeId);
+          if (!shape) return;
+
+          const props = shape.props as AVVPageProps;
+          const sections = parseSections(props.sectionsJson);
+          const idx = sections.findIndex((s) => s.id === msg.sectionId);
+          if (idx === -1) return;
+
+          sections[idx] = { ...sections[idx], ...msg.updates };
+
+          // Derive page status from sections
+          const allReady = sections.every((s) => s.status === "ready");
+          const anyError = sections.some((s) => s.status === "error");
+
+          editor.updateShape({
             id: shapeId,
-            type: AVV_COMPONENT_TYPE,
-          };
-          if (x !== undefined) shapeUpdate.x = x;
-          if (y !== undefined) shapeUpdate.y = y;
-          const propUpdates: Partial<AVVComponentProps> = { ...rest };
-          if (width !== undefined) propUpdates.w = width;
-          if (height !== undefined) propUpdates.h = height;
-          shapeUpdate.props = propUpdates;
-
-          editor.updateShape(shapeUpdate as Parameters<typeof editor.updateShape>[0]);
+            type: AVV_PAGE_TYPE,
+            props: {
+              sectionsJson: serializeSections(sections),
+              status: allReady ? "ready" : anyError ? "error" : "generating",
+            },
+          });
           break;
         }
 
-        case "component:status": {
-          const shapeId = componentMapRef.current.get(msg.componentId);
+        case "section:status": {
+          const shapeId = pageMapRef.current.get(msg.pageId);
+          if (!shapeId) return;
+
+          const shape = editor.getShape(shapeId);
+          if (!shape) return;
+
+          const props = shape.props as AVVPageProps;
+          const sections = parseSections(props.sectionsJson);
+          const idx = sections.findIndex((s) => s.id === msg.sectionId);
+          if (idx === -1) return;
+
+          sections[idx] = { ...sections[idx], status: msg.status };
+
+          editor.updateShape({
+            id: shapeId,
+            type: AVV_PAGE_TYPE,
+            props: { sectionsJson: serializeSections(sections) },
+          });
+          break;
+        }
+
+        case "page:status": {
+          const shapeId = pageMapRef.current.get(msg.pageId);
           if (!shapeId) return;
 
           editor.updateShape({
             id: shapeId,
-            type: AVV_COMPONENT_TYPE,
+            type: AVV_PAGE_TYPE,
             props: { status: msg.status },
           });
           break;
         }
 
         case "generation:done": {
-          console.log("[CanvasSync] Generation complete");
           editor.zoomToFit({ animation: { duration: 500 } });
           break;
         }

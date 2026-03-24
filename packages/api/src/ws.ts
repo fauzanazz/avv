@@ -155,8 +155,9 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
 
       iterateComponent({
         sessionId: sid,
-        componentId: msg.componentId,
-        componentName: msg.componentName,
+        pageId: msg.pageId,
+        sectionId: msg.sectionId,
+        sectionName: msg.sectionName,
         currentHtml: msg.currentHtml,
         currentCss: msg.currentCss,
         instruction: msg.instruction,
