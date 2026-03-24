@@ -20,7 +20,8 @@ app.route("/api", healthRoute);
 app.route("/api", sessionRoute);
 app.route("/api", generateRoute);
 
-const port = Number(process.env.PORT) || 3001;
+const parsed = Number(process.env.PORT);
+const port = Number.isNaN(parsed) ? 3001 : parsed;
 const wsHandler = createWSHandler();
 
 const server = Bun.serve<WSData>({
