@@ -3,7 +3,7 @@ import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
 import { orchestrate, cancelSession } from "./agents/orchestrator";
-import { startConversation, continueConversation, getConversation } from "./agents/conversation";
+import { startConversation, continueConversation, getConversation, deleteConversation } from "./agents/conversation";
 import { retrySection } from "./agents/retrier";
 import { iterateComponent } from "./agents/iterator";
 
@@ -52,6 +52,14 @@ export function createWSHandler() {
   };
 }
 
+function triggerGeneration(ws: ServerWebSocket<WSData>, sessionId: string, enrichedPrompt: string, mode: "simple" | "ultrathink"): void {
+  deleteConversation(sessionId);
+  orchestrate({ prompt: enrichedPrompt, mode, sessionId }).catch((err) => {
+    console.error("[Orchestrate] Failed:", err);
+    connectionStore.send(ws, { type: "error", message: "Generation failed" });
+  });
+}
+
 function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): void {
   switch (msg.type) {
     case "generate": {
@@ -67,7 +75,12 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         sessionId: session.id,
       });
 
-      startConversation(session.id, msg.prompt, msg.mode).catch((err) => {
+      startConversation(session.id, msg.prompt, msg.mode).then((isReady) => {
+        if (isReady) {
+          const convo = getConversation(session.id);
+          if (convo) triggerGeneration(ws, session.id, convo.enrichedPrompt, convo.mode);
+        }
+      }).catch((err) => {
         console.error("[Conversation] Failed:", err);
         connectionStore.send(ws, { type: "error", message: "Conversation failed" });
       });
@@ -77,19 +90,15 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       const sid = ws.data.sessionId;
       if (!sid) break;
 
-      const convo = getConversation(sid);
-      if (convo?.isReady) {
-        // Ready → trigger generation
-        orchestrate({ prompt: convo.enrichedPrompt, mode: convo.mode, sessionId: sid }).catch((err) => {
-          console.error("[Orchestrate] Failed:", err);
-          connectionStore.send(ws, { type: "error", message: "Generation failed" });
-        });
-      } else {
-        continueConversation(sid, msg.message).catch((err) => {
-          console.error("[Conversation] Failed:", err);
-          connectionStore.send(ws, { type: "error", message: "Chat failed" });
-        });
-      }
+      continueConversation(sid, msg.message).then((isReady) => {
+        if (isReady) {
+          const convo = getConversation(sid);
+          if (convo) triggerGeneration(ws, sid, convo.enrichedPrompt, convo.mode);
+        }
+      }).catch((err) => {
+        console.error("[Conversation] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Chat failed" });
+      });
       break;
     }
     case "retry": {
@@ -130,6 +139,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         break;
       }
       cancelSession(cancelSid);
+      deleteConversation(cancelSid);
       sessionStore.update(cancelSid, { status: "error" });
       console.log(`[WS] Cancel request: ${cancelSid}`);
       break;

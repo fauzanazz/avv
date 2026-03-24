@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, spyOn } from "bun:test";
+import { describe, it, expect, mock, beforeEach, spyOn, afterEach } from "bun:test";
 
 // Mock the agent SDK
 const mockQuery = mock();
@@ -14,11 +14,18 @@ const { planStore } = await import("../store/plan-store");
 const { orchestrate } = await import("./orchestrator");
 
 describe("orchestrate", () => {
+  let broadcastSpy: ReturnType<typeof spyOn>;
+
   beforeEach(() => {
     mockQuery.mockReset();
+    broadcastSpy = spyOn(connectionStore, "broadcast");
   });
 
-  it("creates components and broadcasts updates in simple mode", async () => {
+  afterEach(() => {
+    broadcastSpy.mockRestore();
+  });
+
+  it("creates page and broadcasts section updates in simple mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
@@ -52,7 +59,6 @@ describe("orchestrate", () => {
       return gen();
     });
 
-    const broadcastSpy = spyOn(connectionStore, "broadcast");
     const session = sessionStore.create("todo app", "simple");
 
     await orchestrate({
@@ -61,18 +67,15 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Verify component was created and updated
     const createCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "component:created"
+      ([, msg]: [string, { type: string }]) => msg.type === "page:created"
     );
     expect(createCalls.length).toBe(1);
 
     const updateCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
+      ([, msg]: [string, { type: string }]) => msg.type === "section:updated"
     );
     expect(updateCalls.length).toBe(1);
-
-    broadcastSpy.mockRestore();
   });
 
   it("correctly parses JSON with braces inside string values", async () => {
@@ -110,7 +113,6 @@ describe("orchestrate", () => {
       return gen();
     });
 
-    const broadcastSpy = spyOn(connectionStore, "broadcast");
     const session = sessionStore.create("code block", "simple");
 
     await orchestrate({
@@ -124,26 +126,20 @@ describe("orchestrate", () => {
       ([, msg]: [string, { type: string }]) => msg.type === "section:updated"
     );
     expect(updateCalls.length).toBe(1);
-    const updates = (updateCalls[0][1] as any).updates;
+    const updates = (updateCalls[0][1] as Record<string, unknown>).updates as Record<string, string>;
     expect(updates.html).toContain("function() { return '}'; }");
-
-    broadcastSpy.mockRestore();
   });
 
-  it("saves plans to plan store after creating components", async () => {
+  it("saves plans to plan store after creating sections", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      components: [
+      sections: [
         {
           name: "Hero",
           description: "Hero section",
           htmlTag: "section",
           order: 0,
-          width: 800,
-          height: 400,
-          x: 100,
-          y: 100,
           designGuidance: "Make it bold",
         },
       ],
@@ -168,7 +164,6 @@ describe("orchestrate", () => {
       return gen();
     });
 
-    const broadcastSpy = spyOn(connectionStore, "broadcast");
     const session = sessionStore.create("todo app", "simple");
 
     await orchestrate({
@@ -177,23 +172,23 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Find the componentId from the component:created broadcast
+    // Find the pageId and sectionId from the page:created broadcast
     const createCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "component:created"
+      ([, msg]: [string, { type: string }]) => msg.type === "page:created"
     );
     expect(createCalls.length).toBe(1);
-    const componentId = (createCalls[0][1] as any).component.id;
+    const page = (createCalls[0][1] as Record<string, unknown>).page as { id: string; sections: Array<{ id: string }> };
+    const pageId = page.id;
+    const sectionId = page.sections[0].id;
 
-    // Verify plan was saved
-    const savedPlan = planStore.get(session.id, componentId);
+    // Verify plan was saved by pageId + sectionId
+    const savedPlan = planStore.get(pageId, sectionId);
     expect(savedPlan).toBeDefined();
     expect(savedPlan!.name).toBe("Hero");
     expect(savedPlan!.designGuidance).toBe("Make it bold");
-
-    broadcastSpy.mockRestore();
   });
 
-  it("handles empty components array in ultrathink mode", async () => {
+  it("handles empty sections array in ultrathink mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",

@@ -214,10 +214,10 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
 
     connectionStore.broadcast(sessionId, { type: "page:created", page });
 
-    // Save plans for retry support
-    for (const comp of plan.components) {
-      const id = nameToId.get(comp.name);
-      if (id) planStore.save(sessionId, id, comp);
+    // Save plans for retry support — match by order index to avoid duplicate name collisions
+    for (const sectionPlan of plan.sections) {
+      const section = sections.find((s) => s.order === sectionPlan.order);
+      if (section) planStore.save(pageId, section.id, sectionPlan);
     }
 
     checkAborted();

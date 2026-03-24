@@ -8,13 +8,18 @@ import { extractComponentResult } from "./component-collector";
 const MAX_RETRIES = 3;
 const retryCounts = new Map<string, number>();
 
+function retryKey(pageId: string, sectionId: string): string {
+  return `${pageId}:${sectionId}`;
+}
+
 export async function retrySection(sessionId: string, pageId: string, sectionId: string): Promise<void> {
-  const count = (retryCounts.get(sectionId) ?? 0) + 1;
-  if (count > MAX_RETRIES) {
+  const key = retryKey(pageId, sectionId);
+  const currentCount = retryCounts.get(key) ?? 0;
+
+  if (currentCount >= MAX_RETRIES) {
     connectionStore.broadcast(sessionId, { type: "error", message: `Max retries (${MAX_RETRIES}) reached.` });
     return;
   }
-  retryCounts.set(sectionId, count);
 
   const plan = planStore.get(pageId, sectionId);
   if (!plan) {
@@ -22,7 +27,10 @@ export async function retrySection(sessionId: string, pageId: string, sectionId:
     return;
   }
 
-  connectionStore.broadcast(sessionId, { type: "component:status", componentId: sectionId, status: "generating" });
+  const count = currentCount + 1;
+  retryCounts.set(key, count);
+
+  connectionStore.broadcast(sessionId, { type: "section:status", pageId, sectionId, status: "generating" });
   connectionStore.broadcast(sessionId, { type: "agent:log", agentId: "retrier", message: `Retrying "${plan.name}" (${count}/${MAX_RETRIES})...` });
 
   const mcpServer = createSdkMcpServer({ name: "avv-tools", tools: [submitComponentTool] });
@@ -42,14 +50,14 @@ export async function retrySection(sessionId: string, pageId: string, sectionId:
     const result = extractComponentResult(collected);
     if (result) {
       connectionStore.broadcast(sessionId, {
-        type: "component:updated", componentId: sectionId,
+        type: "section:updated", pageId, sectionId,
         updates: { html: result.html, css: result.css, status: "ready" },
       });
     } else {
-      connectionStore.broadcast(sessionId, { type: "component:status", componentId: sectionId, status: "error" });
+      connectionStore.broadcast(sessionId, { type: "section:status", pageId, sectionId, status: "error" });
     }
   } catch (err) {
     console.error("[Retrier] Failed:", err);
-    connectionStore.broadcast(sessionId, { type: "component:status", componentId: sectionId, status: "error" });
+    connectionStore.broadcast(sessionId, { type: "section:status", pageId, sectionId, status: "error" });
   }
 }

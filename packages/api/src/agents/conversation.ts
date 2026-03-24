@@ -18,7 +18,11 @@ export function getConversation(sessionId: string): ConversationState | undefine
   return conversations.get(sessionId);
 }
 
-export async function startConversation(sessionId: string, userPrompt: string, mode: "simple" | "ultrathink"): Promise<void> {
+export function deleteConversation(sessionId: string): void {
+  conversations.delete(sessionId);
+}
+
+export async function startConversation(sessionId: string, userPrompt: string, mode: "simple" | "ultrathink"): Promise<boolean> {
   const state: ConversationState = {
     sessionId, history: [{ role: "user", content: userPrompt }], mode, isReady: false, enrichedPrompt: "",
   };
@@ -29,13 +33,15 @@ export async function startConversation(sessionId: string, userPrompt: string, m
     : "Mode: ULTRATHINK. Analyze thoroughly, share thinking, propose 2-3 design options with HTML preview snippets. Ask the user which direction they prefer. Only output [READY] after user confirms.";
 
   await runAgentTurn(state, modeInstruction);
+  return state.isReady;
 }
 
-export async function continueConversation(sessionId: string, userMessage: string): Promise<void> {
+export async function continueConversation(sessionId: string, userMessage: string): Promise<boolean> {
   const state = conversations.get(sessionId);
-  if (!state) return;
+  if (!state) return false;
   state.history.push({ role: "user", content: userMessage });
   await runAgentTurn(state, "Continue the conversation. If the user has given enough direction, output [READY] with the final design brief.");
+  return state.isReady;
 }
 
 async function runAgentTurn(state: ConversationState, modeInstruction: string): Promise<void> {
