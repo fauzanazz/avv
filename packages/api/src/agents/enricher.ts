@@ -29,5 +29,5 @@ Enrich this prompt. Output ONLY the enriched prompt text — no JSON, no markdow
     }
   }
 
-  return enrichedResult || userPrompt;
+  return enrichedResult.trim() || userPrompt;
 }

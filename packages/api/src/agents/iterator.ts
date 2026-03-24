@@ -78,7 +78,7 @@ ${currentCss}
     for await (const message of query({
       prompt: `Use the iterator agent to refine the "${componentName}" component. The user says: "${instruction}"`,
       options: {
-        allowedTools: ["Agent"],
+        allowedTools: ["Agent", "mcp__avv-tools__submit_component"],
         agents: { iterator: iteratorAgent },
         maxTurns: 5,
         mcpServers: {

@@ -15,8 +15,9 @@ export async function generateQuestions(userPrompt: string): Promise<UltraThinkQ
   const systemPrompt = loadPrompt("ultrathink");
   let resultText = "";
 
-  for await (const message of query({
-    prompt: `${systemPrompt}
+  try {
+    for await (const message of query({
+      prompt: `${systemPrompt}
 
 ## User's prompt:
 "${userPrompt}"
@@ -28,15 +29,18 @@ Generate 3-5 clarifying questions as a JSON array:
 
 options is optional — only include for multiple-choice questions.
 Output ONLY the JSON array.`,
-    options: {
-      allowedTools: [],
-      maxTurns: 1,
-      model: "haiku",
-    },
-  })) {
-    if ("result" in message) {
-      resultText = message.result;
+      options: {
+        allowedTools: [],
+        maxTurns: 1,
+        model: "haiku",
+      },
+    })) {
+      if ("result" in message) {
+        resultText = message.result;
+      }
     }
+  } catch (err) {
+    console.error("[UltraThink] Failed to generate questions:", err);
   }
 
   try {
@@ -84,8 +88,9 @@ export async function generateSpec(
 
   let specText = "";
 
-  for await (const message of query({
-    prompt: `You are a UI/UX design specialist. Based on the user's request and their answers to clarifying questions, write a detailed design specification.
+  try {
+    for await (const message of query({
+      prompt: `You are a UI/UX design specialist. Based on the user's request and their answers to clarifying questions, write a detailed design specification.
 
 ## User's request:
 "${userPrompt}"
@@ -101,14 +106,17 @@ Write a comprehensive design spec (300-500 words) covering:
 - Component hierarchy
 
 Output ONLY the spec text — no JSON, no markdown headers.`,
-    options: {
-      allowedTools: [],
-      maxTurns: 1,
-    },
-  })) {
-    if ("result" in message) {
-      specText = message.result;
+      options: {
+        allowedTools: [],
+        maxTurns: 1,
+      },
+    })) {
+      if ("result" in message) {
+        specText = message.result;
+      }
     }
+  } catch (err) {
+    console.error("[UltraThink] Failed to generate spec:", err);
   }
 
   return specText || userPrompt;

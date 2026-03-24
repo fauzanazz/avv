@@ -199,10 +199,13 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     message: `Plan created: ${plan.components.length} components to build`,
   });
 
-  // Step 2: Create placeholder components on canvas
+  // Step 2: Create placeholder components on canvas, build name→id map
+  const nameToId = new Map<string, string>();
   for (const comp of plan.components) {
+    const id = crypto.randomUUID();
+    nameToId.set(comp.name, id);
     const component: AVVComponent = {
-      id: crypto.randomUUID(),
+      id,
       name: comp.name,
       status: "pending",
       html: "",
@@ -225,10 +228,11 @@ Place components in a vertical stack layout. First component at y=100, subsequen
   const builderAgents = createBuilderAgents(plan);
   const buildPromises = plan.components.map(async (comp) => {
     const agentName = `builder-${comp.order}`;
+    const componentId = nameToId.get(comp.name)!;
 
     connectionStore.broadcast(sessionId, {
       type: "component:status",
-      componentId: comp.name,
+      componentId,
       status: "generating",
     });
 
@@ -266,7 +270,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       if (parsed) {
         connectionStore.broadcast(sessionId, {
           type: "component:updated",
-          componentId: comp.name,
+          componentId,
           updates: {
             html: parsed.html,
             css: parsed.css,
@@ -276,7 +280,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       } else {
         connectionStore.broadcast(sessionId, {
           type: "component:status",
-          componentId: comp.name,
+          componentId,
           status: "error",
         });
       }
@@ -284,7 +288,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       console.error(`[Agent] Builder ${agentName} failed:`, err);
       connectionStore.broadcast(sessionId, {
         type: "component:status",
-        componentId: comp.name,
+        componentId,
         status: "error",
       });
     }
