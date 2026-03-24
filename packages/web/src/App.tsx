@@ -11,6 +11,7 @@ import { LeftSidebar } from "./components/layout/LeftSidebar";
 import { RightPanel } from "./components/layout/RightPanel";
 
 const customShapeUtils = [AVVPageShapeUtil];
+const MAX_QUEUED_MESSAGES = 200;
 
 export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -28,7 +29,12 @@ export function App() {
     (msg: ServerMessage) => {
       handleCanvasMessage(msg);
       handleLogMessage(msg);
-      messageQueueRef.current.push(msg);
+      const queue = messageQueueRef.current;
+      queue.push(msg);
+      // Cap queue size so it doesn't grow unbounded when the right panel is closed
+      if (queue.length > MAX_QUEUED_MESSAGES) {
+        queue.splice(0, queue.length - MAX_QUEUED_MESSAGES);
+      }
       setMessageSeq((s) => s + 1);
     },
     [handleCanvasMessage, handleLogMessage]
