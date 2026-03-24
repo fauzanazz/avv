@@ -1,25 +1,36 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { ClientMessage } from "@avv/shared";
+import type { ServerMessage, ClientMessage } from "@avv/shared";
 import { saveSession, loadSession, clearAll, type ChatEntry } from "../../utils/session-persistence";
-import type { LatestMessage } from "../../App";
 
 type ChatMessage = Omit<ChatEntry, "timestamp"> & { timestamp: Date };
 
 interface RightPanelProps {
-  latestMessage: LatestMessage | null;
+  messageSeq: number;
+  drainMessages: () => ServerMessage[];
   isConnected: boolean;
   sessionId: string | null;
   onSend: (msg: ClientMessage) => void;
   onClose: () => void;
 }
 
-export function RightPanel({ latestMessage, isConnected, sessionId, onSend, onClose }: RightPanelProps) {
+function serverMessageToEntry(msg: ServerMessage): ChatMessage | null {
+  const ts = new Date();
+  const id = crypto.randomUUID();
+
+  if (msg.type === "agent:thinking") return { id, type: "thinking", content: msg.thought, timestamp: ts };
+  if (msg.type === "agent:option") return { id, type: "option", content: msg.description, title: msg.title, previewHtml: msg.previewHtml, timestamp: ts };
+  if (msg.type === "agent:log") return { id, type: "agent", content: msg.message, timestamp: ts };
+  if (msg.type === "generation:done") return { id, type: "system", content: "Generation complete.", timestamp: ts };
+  if (msg.type === "error") return { id, type: "system", content: `Error: ${msg.message}`, timestamp: ts };
+  return null;
+}
+
+export function RightPanel({ messageSeq, drainMessages, isConnected, sessionId, onSend, onClose }: RightPanelProps) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"simple" | "ultrathink">("simple");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastProcessedSeqRef = useRef(0);
 
   // Load persisted session on mount
   useEffect(() => {
@@ -42,24 +53,18 @@ export function RightPanel({ latestMessage, isConnected, sessionId, onSend, onCl
     return () => clearTimeout(timer);
   }, [chatHistory, sessionId, mode]);
 
-  // Convert new server messages to chat entries
+  // Drain queued server messages and convert to chat entries
   useEffect(() => {
-    if (!latestMessage || latestMessage.seq <= lastProcessedSeqRef.current) return;
-    lastProcessedSeqRef.current = latestMessage.seq;
+    const messages = drainMessages();
+    if (messages.length === 0) return;
 
-    const msg = latestMessage.msg;
-    let entry: ChatMessage | null = null;
-    const ts = new Date();
-    const id = crypto.randomUUID();
-
-    if (msg.type === "agent:thinking") entry = { id, type: "thinking", content: msg.thought, timestamp: ts };
-    else if (msg.type === "agent:option") entry = { id, type: "option", content: msg.description, title: msg.title, previewHtml: msg.previewHtml, timestamp: ts };
-    else if (msg.type === "agent:log") entry = { id, type: "agent", content: msg.message, timestamp: ts };
-    else if (msg.type === "generation:done") entry = { id, type: "system", content: "Generation complete.", timestamp: ts };
-    else if (msg.type === "error") entry = { id, type: "system", content: `Error: ${msg.message}`, timestamp: ts };
-
-    if (entry) setChatHistory((prev) => [...prev, entry!]);
-  }, [latestMessage]);
+    const entries: ChatMessage[] = [];
+    for (const msg of messages) {
+      const entry = serverMessageToEntry(msg);
+      if (entry) entries.push(entry);
+    }
+    if (entries.length > 0) setChatHistory((prev) => [...prev, ...entries]);
+  }, [messageSeq, drainMessages]);
 
   useEffect(() => { scrollRef.current && (scrollRef.current.scrollTop = scrollRef.current.scrollHeight); }, [chatHistory]);
 

@@ -12,17 +12,14 @@ import { RightPanel } from "./components/layout/RightPanel";
 
 const customShapeUtils = [AVVPageShapeUtil];
 
-export interface LatestMessage {
-  msg: ServerMessage;
-  seq: number;
-}
-
 export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
-  const [latestMessage, setLatestMessage] = useState<LatestMessage | null>(null);
-  const seqRef = useRef(0);
+
+  // Queue-based message passing: ref accumulates messages, state triggers drain
+  const messageQueueRef = useRef<ServerMessage[]>([]);
+  const [messageSeq, setMessageSeq] = useState(0);
 
   const { handleMessage: handleCanvasMessage } = useCanvasSync(editor);
   const { handleMessage: handleLogMessage } = useAgentLogs();
@@ -31,11 +28,15 @@ export function App() {
     (msg: ServerMessage) => {
       handleCanvasMessage(msg);
       handleLogMessage(msg);
-      seqRef.current += 1;
-      setLatestMessage({ msg, seq: seqRef.current });
+      messageQueueRef.current.push(msg);
+      setMessageSeq((s) => s + 1);
     },
     [handleCanvasMessage, handleLogMessage]
   );
+
+  const drainMessages = useCallback((): ServerMessage[] => {
+    return messageQueueRef.current.splice(0);
+  }, []);
 
   const { send, isConnected, sessionId } = useAVVWebSocket({ onMessage });
 
@@ -92,7 +93,8 @@ export function App() {
 
         {rightOpen && (
           <RightPanel
-            latestMessage={latestMessage}
+            messageSeq={messageSeq}
+            drainMessages={drainMessages}
             isConnected={isConnected}
             sessionId={sessionId}
             onSend={send}
