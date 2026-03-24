@@ -1,0 +1,20 @@
+[
+  { "name": "shared-types-page-section", "description": "New shared types: AVVPage, PageSection, ComponentStatus in canvas.ts", "passes": true },
+  { "name": "shared-types-ws-messages", "description": "Updated WebSocket messages: page:created, section:updated, section:status, page:status", "passes": true },
+  { "name": "shared-types-agent", "description": "Updated agent types: SectionPlan, DesignPlan with sections instead of components", "passes": true },
+  { "name": "avv-page-shape-type", "description": "New avv-page tldraw shape with AVVPageProps and sectionsJson serialization", "passes": true },
+  { "name": "page-preview-stitched", "description": "Single iframe rendering all sections stitched together as one HTML document", "passes": true },
+  { "name": "page-status-bar", "description": "Title bar showing page name and section progress (N/M sections)", "passes": true },
+  { "name": "shape-barrel-exports", "description": "Updated barrel exports for avv-page shape (shapes/index.ts, shapes.ts)", "passes": true },
+  { "name": "delete-avv-component", "description": "Removed old avv-component shape directory entirely", "passes": true },
+  { "name": "canvas-sync-page-model", "description": "useCanvasSync handles page:created, section:updated, section:status, page:status", "passes": true },
+  { "name": "orchestrator-page-model", "description": "Orchestrator creates 1 page with sections, spawns builders per section", "passes": true },
+  { "name": "orchestrator-prompt-sections", "description": "Orchestrator prompt uses sections with order instead of components with x/y", "passes": true },
+  { "name": "iterator-section-level", "description": "Iterator targets individual sections by pageId/sectionId", "passes": true },
+  { "name": "layers-panel-hierarchical", "description": "LayersPanel shows page > section tree with status indicators", "passes": true },
+  { "name": "app-tsx-page-shape", "description": "App.tsx uses AVVPageShapeUtil, no old component references", "passes": true },
+  { "name": "ws-handler-iterate", "description": "WebSocket handler routes iterate messages with pageId/sectionId", "passes": true },
+  { "name": "context-menu-section", "description": "Right-click context menu targets sections within a page shape", "passes": true },
+  { "name": "properties-panel-sections", "description": "PropertiesPanel shows page properties and section list", "passes": true },
+  { "name": "image-patching-sections", "description": "useImagePatching finds sections by sectionId within page shapes", "passes": true }
+]
