@@ -1,4 +1,5 @@
 import type { AVVComponent, ComponentStatus } from "./canvas";
+import type { ImageResult } from "./agent";
 
 export type ServerMessage =
   | { type: "session:started"; sessionId: string }
@@ -7,6 +8,8 @@ export type ServerMessage =
   | { type: "component:status"; componentId: string; status: ComponentStatus }
   | { type: "agent:log"; agentId: string; message: string }
   | { type: "generation:done"; sessionId: string }
+  | { type: "image:ready"; image: ImageResult }
+  | { type: "image:generating"; requestId: string; componentId: string }
   | { type: "error"; message: string };
 
 export type ClientMessage =
