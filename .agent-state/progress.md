@@ -1,10 +1,15 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # FAU-35: Hono Backend with WebSocket and Session Management
+=======
+# Progress — FAU-42: Component Iteration Context Menu
+>>>>>>> 128e92b (chore: add agent state tracking files [FAU-42])
 
 ## Status: Complete
 
 ## What was accomplished
 
+<<<<<<< HEAD
 All features from the design document are fully implemented and verified:
 
 ### Shared types (`@avv/shared`)
@@ -60,3 +65,22 @@ Nothing — all violations addressed. Type-check and build both pass.
 - **Web build script**: Changed from `tsc -b && vite build` to `tsc --noEmit && vite build`. `tsc -b` requires `composite: true` which is incompatible with `tsc --noEmit` for type-checking. Since Vite handles TS compilation, `tsc --noEmit` is the correct pre-build check.
 - **Design doc updated**: Updated the design doc's default WS URL to reflect the protocol-aware helper.
 >>>>>>> 55e7f37 (fix: address all 7 review violations from cubic-dev-ai [FAU-39])
+=======
+All requirements from the design doc are implemented and type-checked:
+
+1. **Iterator agent** (`packages/api/src/agents/iterator.ts`) — Spawns a builder agent with the current HTML/CSS + user instruction, broadcasts status updates, and replaces the component on completion.
+2. **ClientMessage type** (`packages/shared/src/types/ws.ts`) — `iterate` message carries componentId, componentName, currentHtml, currentCss, instruction, and iteration.
+3. **WebSocket handler** (`packages/api/src/ws.ts`) — `iterate` case delegates to `iterateComponent()` with session validation.
+4. **ComponentContextMenu** (`packages/web/src/components/ComponentContextMenu.tsx`) — Inline chat input with backdrop, auto-focus, submit button.
+5. **useComponentContextMenu hook** (`packages/web/src/canvas/hooks/useComponentContextMenu.ts`) — Detects right-click on `avv-component` shapes, extracts props.
+6. **App.tsx wiring** (`packages/web/src/App.tsx`) — Context menu rendered on right-click, sends iterate WS message on submit.
+
+## What's left
+
+Nothing — all features pass type-check and match the design doc.
+
+## Decisions
+
+- The iterator agent uses `createSdkMcpServer` (SDK helper) rather than the raw array format from the design doc, matching the actual SDK API.
+- No project-level tests exist in this repo; verification was done via `pnpm type-check`.
+>>>>>>> 128e92b (chore: add agent state tracking files [FAU-42])

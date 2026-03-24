@@ -1,5 +1,6 @@
 [
 <<<<<<< HEAD
+<<<<<<< HEAD
   { "name": "shared-types", "description": "Type-safe shared types (Session, ApiResponse, GenerateRequest, ServerMessage, ClientMessage, AVVComponent, ComponentStatus) in @avv/shared", "passes": true },
   { "name": "session-store", "description": "In-memory session store with create, get, update, list, delete operations", "passes": true },
   { "name": "connection-store", "description": "WebSocket connection manager with per-session tracking, broadcast, and send", "passes": true },
@@ -19,4 +20,46 @@
   { "name": "component-updated-field-mapping", "description": "Map AVVComponent x/y/width/height fields to tldraw shape x/y/w/h on component:updated", "passes": true },
   { "name": "shared-tsconfig-composite", "description": "Add composite: true to shared tsconfig and fix web build script for tsc -b compatibility", "passes": true }
 >>>>>>> 55e7f37 (fix: address all 7 review violations from cubic-dev-ai [FAU-39])
+=======
+  {
+    "name": "iterate-ws-handler",
+    "description": "Backend iterate WebSocket handler that spawns a builder agent with previous HTML + instruction",
+    "passes": true
+  },
+  {
+    "name": "iterate-client-message-type",
+    "description": "ClientMessage iterate type with componentId, componentName, currentHtml, currentCss, instruction, iteration fields",
+    "passes": true
+  },
+  {
+    "name": "ws-iterate-wiring",
+    "description": "Wire iterate handler into WebSocket message switch case in ws.ts",
+    "passes": true
+  },
+  {
+    "name": "context-menu-component",
+    "description": "ComponentContextMenu with inline chat input for iteration instructions",
+    "passes": true
+  },
+  {
+    "name": "context-menu-hook",
+    "description": "useComponentContextMenu hook that detects right-click on avv-component shapes",
+    "passes": true
+  },
+  {
+    "name": "context-menu-app-wiring",
+    "description": "Wire context menu into App.tsx with onContextMenu handler and iterate WebSocket send",
+    "passes": true
+  },
+  {
+    "name": "component-status-streaming",
+    "description": "Status updates broadcast (generating -> ready/error) and iteration counter increment",
+    "passes": true
+  },
+  {
+    "name": "review-feedback-fixes",
+    "description": "Address all P0/P1/P2 review feedback from cubic code review",
+    "passes": true
+  }
+>>>>>>> 128e92b (chore: add agent state tracking files [FAU-42])
 ]

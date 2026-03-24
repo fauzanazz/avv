@@ -7,6 +7,7 @@ type ImageCallback = (result: ImageResult) => void;
  * Builder agents push requests; the image agent processes them.
  */
 class ImageQueue {
+<<<<<<< HEAD
   private queue: Array<{ request: ImageRequest; sessionId: string; callback: ImageCallback }> = [];
   private processing = false;
   private listeners = new Map<string, ImageCallback>();
@@ -34,11 +35,21 @@ class ImageQueue {
     this.pendingBySession.set(sessionId, (this.pendingBySession.get(sessionId) ?? 0) + 1);
     this.queue.push({ request, sessionId, callback });
 >>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
+=======
+  private queue: Array<{ request: ImageRequest; callback: ImageCallback }> = [];
+  private processing = false;
+
+  onResult: ImageCallback | null = null;
+
+  push(request: ImageRequest, callback: ImageCallback): void {
+    this.queue.push({ request, callback });
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
     if (!this.processing) {
       this.processNext();
     }
   }
 
+<<<<<<< HEAD
   /**
    * Returns a promise that resolves when all queued/in-flight items
    * for a session have been processed. Resolves immediately if none pending.
@@ -68,6 +79,8 @@ class ImageQueue {
     }
   }
 
+=======
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
   private async processNext(): Promise<void> {
     if (this.queue.length === 0) {
       this.processing = false;
@@ -82,12 +95,16 @@ class ImageQueue {
       item.callback(result);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       this.onResult?.(result);
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 =======
       this.listeners.get(item.sessionId)?.(result);
 >>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
+=======
+      this.onResult?.(result);
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
     } catch (err) {
       console.error(`[ImageQueue] Failed to generate image:`, err);
       const fallback: ImageResult = {
@@ -97,6 +114,8 @@ class ImageQueue {
         width: item.request.width,
         height: item.request.height,
       };
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
       item.callback(fallback);
 <<<<<<< HEAD
@@ -114,6 +133,19 @@ class ImageQueue {
     }
 
     this.completePending(item.sessionId);
+=======
+      item.callback(fallback);
+=======
+      try {
+        item.callback(fallback);
+      } catch (cbErr) {
+        console.error(`[ImageQueue] Fallback callback threw:`, cbErr);
+      }
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
+      this.onResult?.(fallback);
+    }
+
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
     this.processNext();
   }
 }
@@ -166,6 +198,7 @@ Respond with ONLY the image — no text explanation.`,
  * Used as fallback when image generation fails.
  */
 <<<<<<< HEAD
+<<<<<<< HEAD
 function escapeSvgText(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -183,6 +216,9 @@ function createPlaceholderSvg(width: number, height: number, description: string
 =======
 function createPlaceholderSvg(width: number, height: number, description: string): string {
 >>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
+=======
+function createPlaceholderSvg(width: number, height: number, description: string): string {
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -191,6 +227,7 @@ function createPlaceholderSvg(width: number, height: number, description: string
       </linearGradient>
     </defs>
     <rect fill="url(#g)" width="${width}" height="${height}" rx="8"/>
+<<<<<<< HEAD
 <<<<<<< HEAD
     <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${safeDesc}</text>
   </svg>`;
@@ -206,6 +243,16 @@ function createPlaceholderSvg(width: number, height: number, description: string
 =======
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
 >>>>>>> ba6676d (fix: address code review feedback across UltraThink and supporting modules [FAU-41])
+=======
+    <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#64748b" font-family="system-ui" font-size="14">${description.slice(0, 40)}</text>
+  </svg>`;
+
+<<<<<<< HEAD
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+>>>>>>> 60d7567 (feat: implement async image generation subagent [FAU-38])
+=======
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
+>>>>>>> c16e46e (fix: address review feedback across PR [FAU-42])
 }
 
 export const imageQueue = new ImageQueue();
