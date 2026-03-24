@@ -10,9 +10,14 @@ export type ServerMessage =
   | { type: "generation:done"; sessionId: string }
   | { type: "image:ready"; image: ImageResult }
   | { type: "image:generating"; requestId: string; componentId: string }
+  | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
+  | { type: "ultrathink:spec"; spec: string }
+  | { type: "ultrathink:ready"; enrichedPrompt: string }
   | { type: "error"; message: string };
 
 export type ClientMessage =
   | { type: "generate"; prompt: string; mode: "simple" | "ultrathink" }
   | { type: "iterate"; componentId: string; instruction: string }
+  | { type: "ultrathink:answer"; questionId: string; answer: string }
+  | { type: "ultrathink:confirm" }
   | { type: "cancel"; sessionId: string };

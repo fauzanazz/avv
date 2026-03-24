@@ -1,12 +1,21 @@
+<<<<<<< HEAD
 import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
+=======
+import { query, createSdkMcpServer, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 import type { DesignPlan, AVVComponent } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { enrichPrompt } from "./enricher";
 import { loadPrompt } from "./prompt-loader";
+<<<<<<< HEAD
 import { createRequestImageTool } from "./tools";
 import { submitComponentTool } from "./tools/submit-component";
 import { extractComponentResult } from "./component-collector";
+=======
+import { requestImageTool } from "./tools";
+import { imageQueue } from "./image-queue";
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 
 /** Track active abort controllers by session ID */
 const activeControllers = new Map<string, AbortController>();
@@ -179,6 +188,7 @@ Decompose this into a component plan. Respond with ONLY a JSON object in DesignP
 }
 
 Place components in a vertical stack layout. First component at y=100, subsequent ones below with 40px gap. All components at x=100. Standard width is 800px.`,
+<<<<<<< HEAD
       options: {
         systemPrompt: orchestratorPrompt,
         allowedTools: [],
@@ -188,6 +198,92 @@ Place components in a vertical stack layout. First component at y=100, subsequen
       checkAborted();
       if ("result" in message) {
         planText = message.result;
+=======
+    options: {
+      systemPrompt: orchestratorPrompt,
+      allowedTools: [],
+      maxTurns: 1,
+    },
+  })) {
+    if ("result" in message) {
+      planText = message.result;
+    }
+  }
+
+  const plan = parsePlanFromResponse(planText);
+  if (!plan) {
+    connectionStore.broadcast(sessionId, {
+      type: "error",
+      message: "Failed to generate component plan",
+    });
+    sessionStore.update(sessionId, { status: "error" });
+    return;
+  }
+
+  connectionStore.broadcast(sessionId, {
+    type: "agent:log",
+    agentId: "orchestrator",
+    message: `Plan created: ${plan.components.length} components to build`,
+  });
+
+  // Step 2: Create placeholder components on canvas, build name→id map
+  const nameToId = new Map<string, string>();
+  for (const comp of plan.components) {
+    const id = crypto.randomUUID();
+    nameToId.set(comp.name, id);
+    const component: AVVComponent = {
+      id,
+      name: comp.name,
+      status: "pending",
+      html: "",
+      css: "",
+      prompt: comp.designGuidance,
+      agentId: `builder-${comp.order}`,
+      iteration: 0,
+      width: comp.width,
+      height: comp.height,
+      x: comp.x,
+      y: comp.y,
+    };
+    connectionStore.broadcast(sessionId, {
+      type: "component:created",
+      component,
+    });
+  }
+
+  // Step 3: Spawn builder subagents in parallel
+  const builderAgents = createBuilderAgents(plan);
+  const buildPromises = plan.components.map(async (comp) => {
+    const agentName = `builder-${comp.order}`;
+    const componentId = nameToId.get(comp.name)!;
+
+    connectionStore.broadcast(sessionId, {
+      type: "component:status",
+      componentId,
+      status: "generating",
+    });
+
+    const imageServer = createSdkMcpServer({
+      name: "avv-image",
+      tools: [requestImageTool],
+    });
+
+    let resultText = "";
+
+    try {
+      for await (const message of query({
+        prompt: `Use the ${agentName} agent to build the "${comp.name}" component.`,
+        options: {
+          allowedTools: ["Agent", "mcp__avv-image__request_image"],
+          agents: { [agentName]: builderAgents[agentName] },
+          mcpServers: { "avv-image": imageServer },
+          maxTurns: 3,
+        },
+      })) {
+        if ("result" in message) {
+          resultText = message.result;
+        }
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
       }
     }
 
@@ -329,7 +425,29 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     } else {
       throw err;
     }
+<<<<<<< HEAD
   } finally {
     activeControllers.delete(sessionId);
   }
+=======
+  });
+
+  // Wire image queue to broadcast results to this session
+  imageQueue.addListener(sessionId, (result) => {
+    connectionStore.broadcast(sessionId, {
+      type: "image:ready",
+      image: result,
+    });
+  });
+
+  await Promise.allSettled(buildPromises);
+
+  // Cleanup listener and mark session as done
+  imageQueue.removeListener(sessionId);
+  sessionStore.update(sessionId, { status: "done" });
+  connectionStore.broadcast(sessionId, {
+    type: "generation:done",
+    sessionId,
+  });
+>>>>>>> 48465d1 (feat: implement async image generation subagent [FAU-38])
 }
