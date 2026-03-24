@@ -33,6 +33,11 @@ class ConnectionStore {
     }
   }
 
+  hasConnections(sessionId: string): boolean {
+    const sockets = this.connections.get(sessionId);
+    return !!sockets && sockets.size > 0;
+  }
+
   send(ws: ServerWebSocket<WSData>, message: ServerMessage): void {
     ws.send(JSON.stringify(message));
   }

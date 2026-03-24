@@ -48,8 +48,10 @@ export function createWSHandler() {
     close(ws: ServerWebSocket<WSData>) {
       console.log("[WS] Client disconnected");
       const { sessionId } = ws.data;
-      if (sessionId) deleteConversation(sessionId);
       connectionStore.remove(ws);
+      if (sessionId && !connectionStore.hasConnections(sessionId)) {
+        deleteConversation(sessionId);
+      }
     },
   };
 }
