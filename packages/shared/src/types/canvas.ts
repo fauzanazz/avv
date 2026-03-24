@@ -40,3 +40,12 @@ export interface AVVComponent {
   x: number;
   y: number;
 }
+
+export interface PageSection {
+  id: string;
+  name: string;
+  status: ComponentStatus;
+  html: string;
+  css: string;
+  order: number;
+}
