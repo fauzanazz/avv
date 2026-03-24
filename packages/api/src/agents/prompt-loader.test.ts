@@ -23,15 +23,9 @@ describe("loadPrompt", () => {
     expect(content).toContain("## Anti-Patterns");
   });
 
-  test("loads enricher prompt", () => {
-    const content = loadPrompt("enricher");
-    expect(content).toContain("# AVV Prompt Enricher");
-    expect(content).toContain("## Anti-Patterns");
-  });
-
-  test("loads ultrathink prompt", () => {
-    const content = loadPrompt("ultrathink");
-    expect(content).toContain("# AVV UltraThink Questionnaire Agent");
+  test("loads conversation prompt", () => {
+    const content = loadPrompt("conversation");
+    expect(content).toContain("# AVV Design Conversation Agent");
     expect(content).toContain("## Anti-Patterns");
   });
 
@@ -139,33 +133,21 @@ describe("prompt content quality", () => {
     expect(content).toContain("NO external URLs");
   });
 
-  test("enricher has page type defaults", () => {
-    const content = loadPrompt("enricher");
-    expect(content).toContain("SaaS Landing");
-    expect(content).toContain("Portfolio");
-    expect(content).toContain("Dashboard");
+  test("conversation has mode rules", () => {
+    const content = loadPrompt("conversation");
+    expect(content).toContain("SIMPLE");
+    expect(content).toContain("ULTRATHINK");
   });
 
-  test("enricher has 500 word limit rule", () => {
-    const content = loadPrompt("enricher");
-    expect(content).toContain("500 words");
-  });
-
-  test("ultrathink has question strategy", () => {
-    const content = loadPrompt("ultrathink");
-    expect(content).toContain("Purpose & Context");
-    expect(content).toContain("Maximum 5 questions");
-  });
-
-  test("ultrathink has JSON output format", () => {
-    const content = loadPrompt("ultrathink");
-    expect(content).toContain('"id"');
-    expect(content).toContain('"question"');
-    expect(content).toContain('"options"');
+  test("conversation has response format blocks", () => {
+    const content = loadPrompt("conversation");
+    expect(content).toContain("[THINKING]");
+    expect(content).toContain("[OPTION");
+    expect(content).toContain("[READY]");
   });
 
   test("all prompts include anti-patterns section", () => {
-    for (const name of ["orchestrator", "builder", "enricher", "ultrathink"] as const) {
+    for (const name of ["orchestrator", "builder", "conversation"] as const) {
       const content = loadPrompt(name);
       expect(content).toContain("Anti-Patterns");
     }

@@ -2,7 +2,7 @@ import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from
 import type { DesignPlan, AVVPage, PageSection } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
-import { enrichPrompt } from "./enricher";
+import { planStore } from "../store/plan-store";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
 import { submitComponentTool } from "./tools/submit-component";
@@ -112,24 +112,7 @@ export interface OrchestrateOptions {
 }
 
 export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOptions): Promise<void> {
-  let finalPrompt = prompt;
-
-  if (mode === "simple") {
-    connectionStore.broadcast(sessionId, {
-      type: "agent:log",
-      agentId: "enricher",
-      message: "Enriching prompt with UI/UX best practices...",
-    });
-
-    finalPrompt = await enrichPrompt(prompt);
-
-    connectionStore.broadcast(sessionId, {
-      type: "agent:log",
-      agentId: "enricher",
-      message: "Prompt enriched. Starting design...",
-    });
-  }
-
+  const finalPrompt = prompt;
   const orchestratorPrompt = loadPrompt("orchestrator");
   const abortController = new AbortController();
   activeControllers.set(sessionId, abortController);
@@ -230,6 +213,12 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
     };
 
     connectionStore.broadcast(sessionId, { type: "page:created", page });
+
+    // Save plans for retry support
+    for (const comp of plan.components) {
+      const id = nameToId.get(comp.name);
+      if (id) planStore.save(sessionId, id, comp);
+    }
 
     checkAborted();
 

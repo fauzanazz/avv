@@ -39,6 +39,8 @@ export type ClientMessage =
       instruction: string;
       iteration: number;
     }
+  | { type: "chat"; message: string }
+  | { type: "retry"; pageId: string; sectionId: string }
   | { type: "ultrathink:answer"; questionId: string; answer: string }
   | { type: "ultrathink:confirm" }
   | { type: "cancel" };

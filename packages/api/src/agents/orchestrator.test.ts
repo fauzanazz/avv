@@ -8,34 +8,17 @@ mock.module("@anthropic-ai/claude-agent-sdk", () => ({
   createSdkMcpServer: (opts: unknown) => opts,
 }));
 
-// Mock enrichPrompt
-const mockEnrichPrompt = mock();
-mock.module("./enricher", () => ({
-  enrichPrompt: mockEnrichPrompt,
-}));
-
 // Import stores and orchestrate after mocking
 const { connectionStore, sessionStore } = await import("../store");
+const { planStore } = await import("../store/plan-store");
 const { orchestrate } = await import("./orchestrator");
 
 describe("orchestrate", () => {
   beforeEach(() => {
     mockQuery.mockReset();
-    mockEnrichPrompt.mockReset();
-
-    // Create a session so orchestrate can update it
-    sessionStore.create("test prompt", "simple");
-    // Manually set the id to our test session id
-    const sessions = sessionStore.list();
-    if (sessions.length > 0) {
-      // We need to work with whatever session was created
-    }
   });
 
-  it("calls enrichPrompt in simple mode", async () => {
-    mockEnrichPrompt.mockResolvedValue("enriched prompt text");
-
-    // Mock query to return a valid plan on first call, then component on second
+  it("creates components and broadcasts updates in simple mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
@@ -69,9 +52,7 @@ describe("orchestrate", () => {
       return gen();
     });
 
-    // Spy on broadcast to verify enricher messages
     const broadcastSpy = spyOn(connectionStore, "broadcast");
-
     const session = sessionStore.create("todo app", "simple");
 
     await orchestrate({
@@ -80,21 +61,21 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    expect(mockEnrichPrompt).toHaveBeenCalledWith("todo app");
-
-    // Verify enricher log messages were broadcast
-    const enricherCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string; agentId?: string }]) =>
-        msg.type === "agent:log" && msg.agentId === "enricher"
+    // Verify component was created and updated
+    const createCalls = broadcastSpy.mock.calls.filter(
+      ([, msg]: [string, { type: string }]) => msg.type === "component:created"
     );
-    expect(enricherCalls.length).toBe(2);
+    expect(createCalls.length).toBe(1);
+
+    const updateCalls = broadcastSpy.mock.calls.filter(
+      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
+    );
+    expect(updateCalls.length).toBe(1);
 
     broadcastSpy.mockRestore();
   });
 
   it("correctly parses JSON with braces inside string values", async () => {
-    mockEnrichPrompt.mockResolvedValue("enriched");
-
     const planJson = JSON.stringify({
       title: "Test",
       summary: "Test",
@@ -149,7 +130,70 @@ describe("orchestrate", () => {
     broadcastSpy.mockRestore();
   });
 
-  it("does NOT call enrichPrompt in ultrathink mode", async () => {
+  it("saves plans to plan store after creating components", async () => {
+    const planJson = JSON.stringify({
+      title: "Test Page",
+      summary: "A test page",
+      components: [
+        {
+          name: "Hero",
+          description: "Hero section",
+          htmlTag: "section",
+          order: 0,
+          width: 800,
+          height: 400,
+          x: 100,
+          y: 100,
+          designGuidance: "Make it bold",
+        },
+      ],
+    });
+
+    const componentJson = JSON.stringify({
+      name: "Hero",
+      html: "<section>Hero</section>",
+      css: ".hero { color: blue; }",
+    });
+
+    let callCount = 0;
+    mockQuery.mockImplementation(() => {
+      callCount++;
+      async function* gen() {
+        if (callCount === 1) {
+          yield { result: planJson };
+        } else {
+          yield { result: componentJson };
+        }
+      }
+      return gen();
+    });
+
+    const broadcastSpy = spyOn(connectionStore, "broadcast");
+    const session = sessionStore.create("todo app", "simple");
+
+    await orchestrate({
+      prompt: "todo app",
+      mode: "simple",
+      sessionId: session.id,
+    });
+
+    // Find the componentId from the component:created broadcast
+    const createCalls = broadcastSpy.mock.calls.filter(
+      ([, msg]: [string, { type: string }]) => msg.type === "component:created"
+    );
+    expect(createCalls.length).toBe(1);
+    const componentId = (createCalls[0][1] as any).component.id;
+
+    // Verify plan was saved
+    const savedPlan = planStore.get(session.id, componentId);
+    expect(savedPlan).toBeDefined();
+    expect(savedPlan!.name).toBe("Hero");
+    expect(savedPlan!.designGuidance).toBe("Make it bold");
+
+    broadcastSpy.mockRestore();
+  });
+
+  it("handles empty components array in ultrathink mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
@@ -171,6 +215,8 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    expect(mockEnrichPrompt).not.toHaveBeenCalled();
+    // Should complete without errors
+    const updatedSession = sessionStore.get(session.id);
+    expect(updatedSession?.status).toBe("done");
   });
 });
