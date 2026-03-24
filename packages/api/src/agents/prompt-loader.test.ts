@@ -113,10 +113,10 @@ describe("prompt content quality", () => {
     expect(content).toContain("Blog");
   });
 
-  test("orchestrator has layout rules", () => {
+  test("orchestrator has section rules", () => {
     const content = loadPrompt("orchestrator");
-    expect(content).toContain("800px");
-    expect(content).toContain("40px gap");
+    expect(content).toContain("Sections are rendered vertically");
+    expect(content).toContain("full-width");
   });
 
   test("orchestrator has JSON output format", () => {
