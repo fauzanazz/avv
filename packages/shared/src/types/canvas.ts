@@ -1,5 +1,6 @@
 export type ComponentStatus = "pending" | "generating" | "ready" | "error";
 
+
 export interface AVVComponent {
   id: string;
   name: string;

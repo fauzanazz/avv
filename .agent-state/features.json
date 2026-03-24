@@ -1,4 +1,5 @@
 [
+<<<<<<< HEAD
   { "name": "shared-types", "description": "Type-safe shared types (Session, ApiResponse, GenerateRequest, ServerMessage, ClientMessage, AVVComponent, ComponentStatus) in @avv/shared", "passes": true },
   { "name": "session-store", "description": "In-memory session store with create, get, update, list, delete operations", "passes": true },
   { "name": "connection-store", "description": "WebSocket connection manager with per-session tracking, broadcast, and send", "passes": true },
@@ -9,4 +10,13 @@
   { "name": "entry-point", "description": "Hono app with CORS, logger, route mounting, and Bun.serve with WebSocket upgrade at /ws", "passes": true },
   { "name": "route-organization", "description": "Clean route organization with Hono router groups and barrel exports", "passes": true },
   { "name": "type-check", "description": "All packages pass tsc --noEmit type checking", "passes": true }
+=======
+  { "name": "ws-protocol-auto-detect", "description": "Build WS URL from page protocol so HTTPS pages use wss://", "passes": true },
+  { "name": "ws-reconnect-guard", "description": "Guard reconnect logic to prevent reconnect-after-unmount and clear pending timers on cleanup", "passes": true },
+  { "name": "ws-session-ref", "description": "Read sessionId from ref instead of state in connect to avoid socket churn on session start", "passes": true },
+  { "name": "iframe-no-scripts", "description": "Remove allow-scripts from iframe sandbox to prevent injected HTML from executing JS", "passes": true },
+  { "name": "prompt-submit-guard", "description": "Guard handleSubmit with isConnected check in addition to disabled button", "passes": true },
+  { "name": "component-updated-field-mapping", "description": "Map AVVComponent x/y/width/height fields to tldraw shape x/y/w/h on component:updated", "passes": true },
+  { "name": "shared-tsconfig-composite", "description": "Add composite: true to shared tsconfig and fix web build script for tsc -b compatibility", "passes": true }
+>>>>>>> 55e7f37 (fix: address all 7 review violations from cubic-dev-ai [FAU-39])
 ]
