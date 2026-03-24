@@ -214,24 +214,24 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
 
     connectionStore.broadcast(sessionId, { type: "page:created", page });
 
-    // Save plans for retry support — match by order index to avoid duplicate name collisions
-    for (const sectionPlan of plan.sections) {
-      const section = sections.find((s) => s.order === sectionPlan.order);
-      if (section) planStore.save(pageId, section.id, sectionPlan);
+    // Save plans for retry support — match by array index (sections derived 1:1 from plan.sections)
+    for (let i = 0; i < plan.sections.length; i++) {
+      planStore.save(pageId, sections[i].id, plan.sections[i]);
     }
 
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
-    const sortedSections = [...plan.sections].sort((a, b) => a.order - b.order);
+    // Map plan sections to page sections by array index (1:1 from the same .map() call)
+    const planToSection = new Map(plan.sections.map((sp, i) => [sp, sections[i]]));
 
     const mcpServer = createSdkMcpServer({
       name: "avv-tools",
       tools: [submitComponentTool],
     });
 
-    const buildPromises = sortedSections.map(async (sectionPlan) => {
-      const section = sections.find((s) => s.name === sectionPlan.name)!;
+    const buildPromises = plan.sections.map(async (sectionPlan) => {
+      const section = planToSection.get(sectionPlan)!;
       const agentName = `builder-${sectionPlan.order}`;
       const builderAgent = createBuilderAgent(sectionPlan);
 

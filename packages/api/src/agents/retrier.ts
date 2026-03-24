@@ -49,6 +49,7 @@ export async function retrySection(sessionId: string, pageId: string, sectionId:
 
     const result = extractComponentResult(collected);
     if (result) {
+      retryCounts.delete(key);
       connectionStore.broadcast(sessionId, {
         type: "section:updated", pageId, sectionId,
         updates: { html: result.html, css: result.css, status: "ready" },

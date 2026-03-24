@@ -47,6 +47,8 @@ export function createWSHandler() {
 
     close(ws: ServerWebSocket<WSData>) {
       console.log("[WS] Client disconnected");
+      const { sessionId } = ws.data;
+      if (sessionId) deleteConversation(sessionId);
       connectionStore.remove(ws);
     },
   };
@@ -89,6 +91,13 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
     case "chat": {
       const sid = ws.data.sessionId;
       if (!sid) break;
+
+      // Short-circuit: if conversation is already READY, trigger generation directly
+      const existingConvo = getConversation(sid);
+      if (existingConvo?.isReady) {
+        triggerGeneration(ws, sid, existingConvo.enrichedPrompt, existingConvo.mode);
+        break;
+      }
 
       continueConversation(sid, msg.message).then((isReady) => {
         if (isReady) {
