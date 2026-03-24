@@ -23,7 +23,7 @@ export function PageStatusBar({ title, readyCount, totalCount, isGenerating, isA
         height: 36,
       }}
     >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
         {title}
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, flexShrink: 0 }}>

@@ -43,7 +43,13 @@ export function LayersPanel({ editor, isOpen, onToggle }: LayersPanelProps) {
     const updateSelection = () => {
       const selected = editor.getSelectedShapes();
       const avvSelected = selected.find((s) => s.type === AVV_PAGE_TYPE);
-      setSelectedShapeId(avvSelected?.id ?? null);
+      const newShapeId = avvSelected?.id ?? null;
+      setSelectedShapeId((prev) => {
+        if (prev !== newShapeId) {
+          setSelectedSectionId(null);
+        }
+        return newShapeId;
+      });
     };
 
     const unsub = editor.store.listen(updateLayers, { scope: "document" });

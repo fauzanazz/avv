@@ -84,10 +84,17 @@ export function useCanvasSync(editor: Editor | null): UseCanvasSyncReturn {
 
           sections[idx] = { ...sections[idx], status: msg.status };
 
+          // Derive page status from sections (same logic as section:updated)
+          const allReady = sections.every((s) => s.status === "ready");
+          const anyError = sections.some((s) => s.status === "error");
+
           editor.updateShape({
             id: shapeId,
             type: AVV_PAGE_TYPE,
-            props: { sectionsJson: serializeSections(sections) },
+            props: {
+              sectionsJson: serializeSections(sections),
+              status: allReady ? "ready" : anyError ? "error" : "generating",
+            },
           });
           break;
         }

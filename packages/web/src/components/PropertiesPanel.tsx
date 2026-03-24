@@ -102,12 +102,25 @@ export function PropertiesPanel({ editor, isOpen, onToggle }: PropertiesPanelPro
                 {showHtml ? "Hide" : "Show"} Section HTML/CSS
               </button>
 
-              {showHtml && sections.filter((s) => s.html).map((s) => (
+              {showHtml && sections.filter((s) => s.html || s.css).map((s) => (
                 <div key={s.id} className="mt-2 space-y-1">
                   <p className="text-xs font-medium text-slate-500">{s.name}</p>
-                  <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
-                    {s.html || "--"}
-                  </pre>
+                  {s.html && (
+                    <>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase">HTML</p>
+                      <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
+                        {s.html}
+                      </pre>
+                    </>
+                  )}
+                  {s.css && (
+                    <>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase">CSS</p>
+                      <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
+                        {s.css}
+                      </pre>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
