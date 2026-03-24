@@ -39,16 +39,12 @@ describe("orchestrate", () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      components: [
+      sections: [
         {
           name: "Hero",
           description: "Hero section",
           htmlTag: "section",
           order: 0,
-          width: 800,
-          height: 400,
-          x: 100,
-          y: 100,
           designGuidance: "Make it bold",
         },
       ],
@@ -102,16 +98,12 @@ describe("orchestrate", () => {
     const planJson = JSON.stringify({
       title: "Test",
       summary: "Test",
-      components: [
+      sections: [
         {
           name: "Code",
           description: "Code section",
           htmlTag: "section",
           order: 0,
-          width: 800,
-          height: 400,
-          x: 100,
-          y: 100,
           designGuidance: "Show code",
         },
       ],
@@ -146,9 +138,9 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Verify the component was updated with the full HTML (not truncated at first })
+    // Verify the section was updated with the full HTML (not truncated at first })
     const updateCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
+      ([, msg]: [string, { type: string }]) => msg.type === "section:updated"
     );
     expect(updateCalls.length).toBe(1);
     const updates = (updateCalls[0][1] as any).updates;
@@ -161,7 +153,7 @@ describe("orchestrate", () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      components: [],
+      sections: [],
     });
 
     mockQuery.mockImplementation(() => {

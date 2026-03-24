@@ -6,8 +6,9 @@ import { submitComponentTool } from "./tools/submit-component";
 
 export interface IterateOptions {
   sessionId: string;
-  componentId: string;
-  componentName: string;
+  pageId: string;
+  sectionId: string;
+  sectionName: string;
   currentHtml: string;
   currentCss: string;
   instruction: string;
@@ -15,13 +16,14 @@ export interface IterateOptions {
 }
 
 /**
- * Iterates on a single component by spawning a builder with the current HTML
+ * Iterates on a single section by spawning a builder with the current HTML
  * and the user's refinement instruction.
  */
 export async function iterateComponent({
   sessionId,
-  componentId,
-  componentName,
+  pageId,
+  sectionId,
+  sectionName,
   currentHtml,
   currentCss,
   instruction,
@@ -30,24 +32,25 @@ export async function iterateComponent({
   const builderPrompt = loadPrompt("builder");
 
   connectionStore.broadcast(sessionId, {
-    type: "component:status",
-    componentId,
+    type: "section:status",
+    pageId,
+    sectionId,
     status: "generating",
   });
 
   connectionStore.broadcast(sessionId, {
     type: "agent:log",
     agentId: "iterator",
-    message: `Iterating on "${componentName}": ${instruction}`,
+    message: `Iterating on "${sectionName}": ${instruction}`,
   });
 
   const iteratorAgent: AgentDefinition = {
-    description: `Iterates on the "${componentName}" component based on user feedback.`,
+    description: `Iterates on the "${sectionName}" section based on user feedback.`,
     prompt: `${builderPrompt}
 
 ## Your Task
 
-You are refining an existing UI component called "${componentName}".
+You are refining an existing UI section called "${sectionName}".
 This is iteration #${iteration + 1}.
 
 ## Current HTML:
@@ -76,7 +79,7 @@ ${currentCss}
 
   try {
     for await (const message of query({
-      prompt: `Use the iterator agent to refine the "${componentName}" component. The user says: "${instruction}"`,
+      prompt: `Use the iterator agent to refine the "${sectionName}" section. The user says: "${instruction}"`,
       options: {
         allowedTools: ["Agent", "mcp__avv-tools__submit_component"],
         agents: { iterator: iteratorAgent },
@@ -95,8 +98,9 @@ ${currentCss}
     const result = extractComponentResult(collectedMessages);
     if (result) {
       connectionStore.broadcast(sessionId, {
-        type: "component:updated",
-        componentId,
+        type: "section:updated",
+        pageId,
+        sectionId,
         updates: {
           html: result.html,
           css: result.css,
@@ -106,16 +110,18 @@ ${currentCss}
       });
     } else {
       connectionStore.broadcast(sessionId, {
-        type: "component:status",
-        componentId,
+        type: "section:status",
+        pageId,
+        sectionId,
         status: "error",
       });
     }
   } catch (err) {
     console.error(`[Iterator] Failed:`, err);
     connectionStore.broadcast(sessionId, {
-      type: "component:status",
-      componentId,
+      type: "section:status",
+      pageId,
+      sectionId,
       status: "error",
     });
   }

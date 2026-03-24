@@ -1,13 +1,9 @@
-/** A single component in the orchestrator's decomposition plan */
-export interface ComponentPlan {
+/** A section in the orchestrator's decomposition plan */
+export interface SectionPlan {
   name: string;
   description: string;
   htmlTag: string;
   order: number;
-  width: number;
-  height: number;
-  x: number;
-  y: number;
   designGuidance: string;
 }
 
@@ -15,13 +11,14 @@ export interface ComponentPlan {
 export interface DesignPlan {
   title: string;
   summary: string;
-  components: ComponentPlan[];
+  sections: SectionPlan[];
 }
 
-/** Image generation request from a builder agent */
+/** Image generation request */
 export interface ImageRequest {
   requestId: string;
-  componentId: string;
+  sectionId: string;
+  pageId: string;
   description: string;
   width: number;
   height: number;
@@ -31,7 +28,8 @@ export interface ImageRequest {
 /** Image generation result */
 export interface ImageResult {
   requestId: string;
-  componentId: string;
+  sectionId: string;
+  pageId: string;
   dataUri: string;
   width: number;
   height: number;

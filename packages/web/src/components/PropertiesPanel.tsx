@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
-import { AVV_COMPONENT_TYPE, type AVVComponentProps } from "../canvas/shapes";
+import type { PageSection } from "@avv/shared";
+import { AVV_PAGE_TYPE, type AVVPageProps, parseSections } from "../canvas/shapes";
 
 interface PropertiesPanelProps {
   editor: Editor | null;
@@ -9,19 +10,28 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ editor, isOpen, onToggle }: PropertiesPanelProps) {
-  const [props, setProps] = useState<AVVComponentProps | null>(null);
+  const [props, setProps] = useState<AVVPageProps | null>(null);
+  const [sections, setSections] = useState<PageSection[]>([]);
   const [showHtml, setShowHtml] = useState(false);
 
   useEffect(() => {
     if (!editor) {
       setProps(null);
+      setSections([]);
       return;
     }
 
     const updateProps = () => {
       const selected = editor.getSelectedShapes();
-      const avvShape = selected.find((s) => s.type === AVV_COMPONENT_TYPE);
-      setProps(avvShape ? (avvShape.props as AVVComponentProps) : null);
+      const avvShape = selected.find((s) => s.type === AVV_PAGE_TYPE);
+      if (avvShape) {
+        const p = avvShape.props as AVVPageProps;
+        setProps(p);
+        setSections(parseSections(p.sectionsJson).sort((a, b) => a.order - b.order));
+      } else {
+        setProps(null);
+        setSections([]);
+      }
     };
 
     editor.on("change", updateProps);
@@ -52,46 +62,67 @@ export function PropertiesPanel({ editor, isOpen, onToggle }: PropertiesPanelPro
 
       <div className="flex-1 overflow-y-auto p-3">
         {!props ? (
-          <p className="text-xs text-slate-400">Select a component to view properties</p>
+          <p className="text-xs text-slate-400">Select a page to view properties</p>
         ) : (
           <div className="space-y-3">
-            <PropRow label="Name" value={props.name} />
+            <PropRow label="Title" value={props.title} />
             <PropRow label="Status" value={props.status} />
             <PropRow label="Dimensions" value={`${props.w} x ${props.h}`} />
-            <PropRow label="Agent" value={props.agentId || "—"} />
-            <PropRow label="Iteration" value={String(props.iteration)} />
+            <PropRow label="Mode" value={props.mode} />
+            <PropRow label="Sections" value={`${sections.length}`} />
 
             <div>
               <p className="text-xs font-medium text-slate-500 mb-1">Prompt</p>
               <p className="text-xs text-slate-600 bg-slate-50 rounded p-2 whitespace-pre-wrap">
-                {props.prompt || "—"}
+                {props.prompt || "--"}
               </p>
             </div>
+
+            {sections.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Sections</p>
+                <div className="space-y-1">
+                  {sections.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                      <span className="text-slate-600 truncate">{s.name}</span>
+                      <span className={`font-medium ${s.status === "ready" ? "text-green-600" : s.status === "error" ? "text-red-600" : "text-slate-400"}`}>
+                        {s.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <button
                 onClick={() => setShowHtml(!showHtml)}
                 className="text-xs text-blue-600 hover:text-blue-800"
               >
-                {showHtml ? "Hide" : "Show"} HTML/CSS
+                {showHtml ? "Hide" : "Show"} Section HTML/CSS
               </button>
 
-              {showHtml && (
-                <div className="mt-2 space-y-2">
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-1">HTML</p>
-                    <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
-                      {props.html || "—"}
-                    </pre>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-1">CSS</p>
-                    <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
-                      {props.css || "—"}
-                    </pre>
-                  </div>
+              {showHtml && sections.filter((s) => s.html || s.css).map((s) => (
+                <div key={s.id} className="mt-2 space-y-1">
+                  <p className="text-xs font-medium text-slate-500">{s.name}</p>
+                  {s.html && (
+                    <>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase">HTML</p>
+                      <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
+                        {s.html}
+                      </pre>
+                    </>
+                  )}
+                  {s.css && (
+                    <>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase">CSS</p>
+                      <pre className="text-xs text-slate-600 bg-slate-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
+                        {s.css}
+                      </pre>
+                    </>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           </div>
         )}

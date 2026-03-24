@@ -1,5 +1,5 @@
 import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
-import type { DesignPlan, AVVComponent } from "@avv/shared";
+import type { DesignPlan, AVVPage, PageSection } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { enrichPrompt } from "./enricher";
@@ -20,28 +20,28 @@ export function cancelSession(sessionId: string): void {
 }
 
 function createBuilderAgent(
-  comp: DesignPlan["components"][number],
+  section: DesignPlan["sections"][number],
 ): AgentDefinition {
   const builderPrompt = loadPrompt("builder");
 
   return {
-    description: `Builds the "${comp.name}" UI component. Use this agent when generating the ${comp.name} section.`,
+    description: `Builds the "${section.name}" UI section. Use this agent when generating the ${section.name} section.`,
     prompt: `${builderPrompt}
 
 ## Your Task
 
-Build the "${comp.name}" component for a web page.
+Build the "${section.name}" section for a web page.
 
-**Description:** ${comp.description}
-**Design guidance:** ${comp.designGuidance}
-**Dimensions:** ${comp.width}x${comp.height}px
+**Description:** ${section.description}
+**Design guidance:** ${section.designGuidance}
 
 ## Instructions
 
 1. Generate beautiful, modern HTML using Tailwind CSS utility classes
 2. Call the submit_component tool with your result
 3. Use real-sounding content, not placeholders
-4. The component must be self-contained and render in an iframe`,
+4. The section must render correctly when placed in a full page with other sections
+5. Use full-width layout (width: 100%) — the page container handles sizing`,
     tools: ["submit_component"],
     model: "sonnet",
   };
@@ -93,12 +93,12 @@ function extractJsonObject(text: string, requiredKey: string): string | null {
 }
 
 function parsePlanFromResponse(text: string): DesignPlan | null {
-  const json = extractJsonObject(text, "components");
+  const json = extractJsonObject(text, "sections");
   if (!json) return null;
 
   try {
     const parsed = JSON.parse(json);
-    if (!parsed.components || !Array.isArray(parsed.components)) return null;
+    if (!parsed.sections || !Array.isArray(parsed.sections)) return null;
     return parsed as DesignPlan;
   } catch {
     return null;
@@ -146,7 +146,7 @@ export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOption
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
       agentId: "orchestrator",
-      message: "Analyzing prompt and creating component plan...",
+      message: "Analyzing prompt and creating section plan...",
     });
 
     let planText = "";
@@ -158,27 +158,23 @@ export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOption
 
 ## Mode: ${mode}
 
-Decompose this into a component plan. Respond with ONLY a JSON object in DesignPlan format:
+Decompose this into a section plan. Respond with ONLY a JSON object in DesignPlan format:
 
 {
   "title": "Page title",
   "summary": "Brief summary of the design approach",
-  "components": [
+  "sections": [
     {
-      "name": "Component Name",
-      "description": "What this component does",
+      "name": "Section Name",
+      "description": "What this section does",
       "htmlTag": "section",
       "order": 0,
-      "width": 800,
-      "height": 400,
-      "x": 100,
-      "y": 100,
-      "designGuidance": "Specific design instructions for this component"
+      "designGuidance": "Specific design instructions for this section"
     }
   ]
 }
 
-Place components in a vertical stack layout. First component at y=100, subsequent ones below with 40px gap. All components at x=100. Standard width is 800px.`,
+Sections are rendered vertically in document flow. CSS handles layout, not canvas coordinates.`,
       options: {
         systemPrompt: orchestratorPrompt,
         allowedTools: [],
@@ -197,7 +193,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     if (!plan) {
       connectionStore.broadcast(sessionId, {
         type: "error",
-        message: "Failed to generate component plan",
+        message: "Failed to generate section plan",
       });
       sessionStore.update(sessionId, { status: "error" });
       return;
@@ -206,58 +202,60 @@ Place components in a vertical stack layout. First component at y=100, subsequen
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
       agentId: "orchestrator",
-      message: `Plan created: ${plan.components.length} components to build`,
+      message: `Plan created: ${plan.sections.length} sections to build`,
     });
 
-    // Step 2: Create placeholder components on canvas, build name->id map
-    const nameToId = new Map<string, string>();
-    for (const comp of plan.components) {
-      const id = crypto.randomUUID();
-      nameToId.set(comp.name, id);
-      const component: AVVComponent = {
-        id,
-        name: comp.name,
-        status: "pending",
-        html: "",
-        css: "",
-        prompt: comp.designGuidance,
-        agentId: `builder-${comp.order}`,
-        iteration: 0,
-        width: comp.width,
-        height: comp.height,
-        x: comp.x,
-        y: comp.y,
-      };
-      connectionStore.broadcast(sessionId, {
-        type: "component:created",
-        component,
-      });
-    }
+    // Step 2: Create a single page with pending sections
+    const pageId = crypto.randomUUID();
+    const sections: PageSection[] = plan.sections.map((s) => ({
+      id: crypto.randomUUID(),
+      name: s.name,
+      status: "pending" as const,
+      html: "",
+      css: "",
+      prompt: s.designGuidance,
+      agentId: `builder-${s.order}`,
+      iteration: 0,
+      order: s.order,
+    }));
+
+    const page: AVVPage = {
+      id: pageId,
+      title: plan.title,
+      status: "generating",
+      sections,
+      prompt: finalPrompt,
+      mode,
+      createdAt: new Date().toISOString(),
+    };
+
+    connectionStore.broadcast(sessionId, { type: "page:created", page });
 
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
-    const sortedComponents = [...plan.components].sort((a, b) => a.order - b.order);
+    const sortedSections = [...plan.sections].sort((a, b) => a.order - b.order);
 
     const mcpServer = createSdkMcpServer({
       name: "avv-tools",
       tools: [submitComponentTool],
     });
 
-    const buildPromises = sortedComponents.map(async (comp) => {
-      const agentName = `builder-${comp.order}`;
-      const componentId = nameToId.get(comp.name)!;
-      const builderAgent = createBuilderAgent(comp);
+    const buildPromises = sortedSections.map(async (sectionPlan) => {
+      const section = sections.find((s) => s.name === sectionPlan.name)!;
+      const agentName = `builder-${sectionPlan.order}`;
+      const builderAgent = createBuilderAgent(sectionPlan);
 
-      const imageTool = createRequestImageTool(componentId, sessionId);
+      const imageTool = createRequestImageTool(section.id, pageId, sessionId);
       const imageServer = createSdkMcpServer({
         name: "avv-image",
         tools: [imageTool],
       });
 
       connectionStore.broadcast(sessionId, {
-        type: "component:status",
-        componentId,
+        type: "section:status",
+        pageId,
+        sectionId: section.id,
         status: "generating",
       });
 
@@ -265,7 +263,7 @@ Place components in a vertical stack layout. First component at y=100, subsequen
 
       try {
         for await (const message of query({
-          prompt: `Use the ${agentName} agent to build the "${comp.name}" component.`,
+          prompt: `Use the ${agentName} agent to build the "${sectionPlan.name}" section.`,
           options: {
             allowedTools: ["Agent", "mcp__avv-image__request_image"],
             agents: { [agentName]: builderAgent },
@@ -282,8 +280,9 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         const result = extractComponentResult(collectedMessages);
         if (result) {
           connectionStore.broadcast(sessionId, {
-            type: "component:updated",
-            componentId,
+            type: "section:updated",
+            pageId,
+            sectionId: section.id,
             updates: {
               html: result.html,
               css: result.css,
@@ -292,8 +291,9 @@ Place components in a vertical stack layout. First component at y=100, subsequen
           });
         } else {
           connectionStore.broadcast(sessionId, {
-            type: "component:status",
-            componentId,
+            type: "section:status",
+            pageId,
+            sectionId: section.id,
             status: "error",
           });
         }
@@ -301,8 +301,9 @@ Place components in a vertical stack layout. First component at y=100, subsequen
         if (err instanceof DOMException && err.name === "AbortError") throw err;
         console.error(`[Agent] Builder ${agentName} failed:`, err);
         connectionStore.broadcast(sessionId, {
-          type: "component:status",
-          componentId,
+          type: "section:status",
+          pageId,
+          sectionId: section.id,
           status: "error",
         });
       }

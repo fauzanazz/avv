@@ -4,19 +4,19 @@ import { imageQueue } from "../image-queue";
 import { connectionStore } from "../../store";
 
 /**
- * Creates a request_image tool bound to a specific component and session.
+ * Creates a request_image tool bound to a specific section, page, and session.
  * When called, it pushes the request to the imageQueue and returns
  * a placeholder immediately. The real image is broadcast via WebSocket
  * when generation completes.
  */
-export function createRequestImageTool(componentId: string, sessionId: string) {
+export function createRequestImageTool(sectionId: string, pageId: string, sessionId: string) {
   return tool(
     "request_image",
-    "Request an AI-generated image for this component. Returns immediately with a placeholder URL. The real image will be injected later via WebSocket.",
+    "Request an AI-generated image for this section. Returns immediately with a placeholder URL. The real image will be injected later via WebSocket.",
     {
       description: z.string().describe("Description of the image to generate"),
-      width: z.number().int().min(16).max(2048).default(400).describe("Image width in pixels (16–2048)"),
-      height: z.number().int().min(16).max(2048).default(300).describe("Image height in pixels (16–2048)"),
+      width: z.number().int().min(16).max(2048).default(400).describe("Image width in pixels (16-2048)"),
+      height: z.number().int().min(16).max(2048).default(300).describe("Image height in pixels (16-2048)"),
       style: z.enum(["photo", "illustration", "icon", "abstract"]).default("photo").describe("Image style"),
     },
     async (args) => {
@@ -26,14 +26,15 @@ export function createRequestImageTool(componentId: string, sessionId: string) {
       connectionStore.broadcast(sessionId, {
         type: "image:generating",
         requestId,
-        componentId,
+        sectionId,
       });
 
       // Push to queue — real image will be broadcast when ready
       imageQueue.push(
         {
           requestId,
-          componentId,
+          sectionId,
+          pageId,
           description: args.description,
           width: args.width,
           height: args.height,
