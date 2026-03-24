@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Editor } from "tldraw";
 import { exportAsHtml, exportAsPng, exportAsSvg, copyHtmlToClipboard } from "../../utils/export";
 
@@ -15,6 +15,7 @@ export function TopBar({ editor, isConnected, leftOpen, rightOpen, onToggleLeft,
   const [exportOpen, setExportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -24,7 +25,11 @@ export function TopBar({ editor, isConnected, leftOpen, rightOpen, onToggleLeft,
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
+  const showToast = useCallback((msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+  }, []);
 
   return (
     <header className="h-14 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 z-50 shrink-0">
@@ -46,11 +51,11 @@ export function TopBar({ editor, isConnected, leftOpen, rightOpen, onToggleLeft,
           </button>
           {exportOpen && editor && (
             <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-stone-200 py-1 z-50">
-              <button onClick={() => { exportAsHtml(editor); setExportOpen(false); showToast("HTML downloaded"); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50">
+              <button onClick={() => { const ok = exportAsHtml(editor); setExportOpen(false); showToast(ok ? "HTML downloaded" : "No page to export"); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50">
                 <span className="material-symbols-outlined text-sm text-stone-400">code</span>
                 <div><p className="text-xs font-semibold text-stone-700">Download HTML</p><p className="text-[10px] text-stone-400">Standalone .html file</p></div>
               </button>
-              <button onClick={async () => { await exportAsPng(editor); setExportOpen(false); showToast("PNG downloaded"); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50">
+              <button onClick={async () => { const ok = await exportAsPng(editor); setExportOpen(false); showToast(ok ? "PNG downloaded" : "PNG export failed"); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50">
                 <span className="material-symbols-outlined text-sm text-stone-400">image</span>
                 <div><p className="text-xs font-semibold text-stone-700">Download PNG</p><p className="text-[10px] text-stone-400">2x screenshot</p></div>
               </button>

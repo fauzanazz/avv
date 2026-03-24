@@ -26,12 +26,12 @@ function downloadBlob(blob: Blob, filename: string): void {
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-export function exportAsHtml(editor: Editor): void {
+export function exportAsHtml(editor: Editor): boolean {
   const page = getPageData(editor);
-  if (!page) { alert("No page to export."); return; }
+  if (!page) return false;
 
   const blob = new Blob([`<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -39,16 +39,18 @@ export function exportAsHtml(editor: Editor): void {
 <style>*,*::before,*::after{box-sizing:border-box}body{margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif}${page.css}</style>
 </head><body>${page.html}</body></html>`], { type: "text/html" });
   downloadBlob(blob, `${slugify(page.title)}.html`);
+  return true;
 }
 
-export async function exportAsPng(editor: Editor): Promise<void> {
+export async function exportAsPng(editor: Editor): Promise<boolean> {
   const page = getPageData(editor);
-  if (!page) { alert("No page to export."); return; }
+  if (!page) return false;
   try {
     const blob = await exportToBlob({ editor, ids: [page.id], format: "png", opts: { background: true, padding: 0, scale: 2 } });
-    if (!blob) { alert("PNG export failed."); return; }
+    if (!blob) return false;
     downloadBlob(blob, `${slugify(page.title)}.png`);
-  } catch { alert("PNG export failed."); }
+    return true;
+  } catch { return false; }
 }
 
 export async function copyHtmlToClipboard(editor: Editor): Promise<boolean> {

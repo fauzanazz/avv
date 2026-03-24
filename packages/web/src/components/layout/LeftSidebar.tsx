@@ -55,7 +55,7 @@ export function LeftSidebar({ editor, onClose, onRetry }: LeftSidebarProps) {
                 <span className={`material-symbols-outlined text-xs ${statusColor(page.status)}`}>{statusIcon(page.status)}</span>
                 <span className="text-[11px] font-semibold text-stone-700 truncate">{page.title}</span>
               </button>
-              {page.sections.sort((a, b) => a.order - b.order).map((section) => (
+              {[...page.sections].sort((a, b) => a.order - b.order).map((section) => (
                 <div key={section.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-stone-100 cursor-pointer pl-6 border-l transition-colors ${selectedSection === section.id ? "border-blue-500 bg-blue-50" : "border-stone-200"}`}>
                   <button onClick={() => setSelectedSection(section.id)} className="flex items-center gap-2 flex-1 text-left">
                     <span className={`material-symbols-outlined text-xs ${statusColor(section.status)}`}>{statusIcon(section.status)}</span>

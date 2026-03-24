@@ -1,23 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { ServerMessage, ClientMessage } from "@avv/shared";
+import type { ClientMessage } from "@avv/shared";
 import { saveSession, loadSession, clearAll, type ChatEntry } from "../../utils/session-persistence";
+import type { LatestMessage } from "../../App";
 
 type ChatMessage = Omit<ChatEntry, "timestamp"> & { timestamp: Date };
 
 interface RightPanelProps {
-  messages: ServerMessage[];
+  latestMessage: LatestMessage | null;
   isConnected: boolean;
   sessionId: string | null;
   onSend: (msg: ClientMessage) => void;
   onClose: () => void;
 }
 
-export function RightPanel({ messages, isConnected, sessionId, onSend, onClose }: RightPanelProps) {
+export function RightPanel({ latestMessage, isConnected, sessionId, onSend, onClose }: RightPanelProps) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"simple" | "ultrathink">("simple");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastProcessedSeqRef = useRef(0);
 
   // Load persisted session on mount
   useEffect(() => {
@@ -25,7 +27,6 @@ export function RightPanel({ messages, isConnected, sessionId, onSend, onClose }
     if (saved && saved.chatHistory.length > 0) {
       setChatHistory(saved.chatHistory.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })));
       setMode(saved.mode);
-      if (saved.sessionId) setHasStarted(true);
     }
   }, []);
 
@@ -43,20 +44,22 @@ export function RightPanel({ messages, isConnected, sessionId, onSend, onClose }
 
   // Convert new server messages to chat entries
   useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (!last) return;
+    if (!latestMessage || latestMessage.seq <= lastProcessedSeqRef.current) return;
+    lastProcessedSeqRef.current = latestMessage.seq;
+
+    const msg = latestMessage.msg;
     let entry: ChatMessage | null = null;
     const ts = new Date();
     const id = crypto.randomUUID();
 
-    if (last.type === "agent:thinking") entry = { id, type: "thinking", content: last.thought, timestamp: ts };
-    else if (last.type === "agent:option") entry = { id, type: "option", content: last.description, title: last.title, previewHtml: last.previewHtml, timestamp: ts };
-    else if (last.type === "agent:log") entry = { id, type: "agent", content: last.message, timestamp: ts };
-    else if (last.type === "generation:done") entry = { id, type: "system", content: "Generation complete.", timestamp: ts };
-    else if (last.type === "error") entry = { id, type: "system", content: `Error: ${last.message}`, timestamp: ts };
+    if (msg.type === "agent:thinking") entry = { id, type: "thinking", content: msg.thought, timestamp: ts };
+    else if (msg.type === "agent:option") entry = { id, type: "option", content: msg.description, title: msg.title, previewHtml: msg.previewHtml, timestamp: ts };
+    else if (msg.type === "agent:log") entry = { id, type: "agent", content: msg.message, timestamp: ts };
+    else if (msg.type === "generation:done") entry = { id, type: "system", content: "Generation complete.", timestamp: ts };
+    else if (msg.type === "error") entry = { id, type: "system", content: `Error: ${msg.message}`, timestamp: ts };
 
     if (entry) setChatHistory((prev) => [...prev, entry!]);
-  }, [messages]);
+  }, [latestMessage]);
 
   useEffect(() => { scrollRef.current && (scrollRef.current.scrollTop = scrollRef.current.scrollHeight); }, [chatHistory]);
 
@@ -116,7 +119,7 @@ export function RightPanel({ messages, isConnected, sessionId, onSend, onClose }
               <div className="flex-1 bg-stone-50 border border-stone-200 p-3 rounded-lg">
                 <p className="text-xs font-[Public_Sans] font-bold text-stone-700 mb-1">{entry.title}</p>
                 <p className="text-[11px] text-stone-500">{entry.content}</p>
-                {entry.previewHtml && <iframe srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/><script src="https://cdn.tailwindcss.com"></script><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui}</style></head><body>${entry.previewHtml}</body></html>`} sandbox="allow-scripts" className="w-full h-24 border-none rounded mt-2 bg-white" title="Preview" />}
+                {entry.previewHtml && <iframe srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui}</style></head><body>${entry.previewHtml}</body></html>`} sandbox="" className="w-full h-24 border-none rounded mt-2 bg-white" title="Preview" />}
               </div>
             </div>
           );

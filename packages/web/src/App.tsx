@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Tldraw, type Editor } from "tldraw";
+import { useState, useCallback, useRef } from "react";
+import { Tldraw, useValue, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import type { ServerMessage } from "@avv/shared";
 import { AVVPageShapeUtil } from "./canvas/shapes";
@@ -12,11 +12,17 @@ import { RightPanel } from "./components/layout/RightPanel";
 
 const customShapeUtils = [AVVPageShapeUtil];
 
+export interface LatestMessage {
+  msg: ServerMessage;
+  seq: number;
+}
+
 export function App() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
-  const [serverMessages, setServerMessages] = useState<ServerMessage[]>([]);
+  const [latestMessage, setLatestMessage] = useState<LatestMessage | null>(null);
+  const seqRef = useRef(0);
 
   const { handleMessage: handleCanvasMessage } = useCanvasSync(editor);
   const { handleMessage: handleLogMessage } = useAgentLogs();
@@ -25,7 +31,8 @@ export function App() {
     (msg: ServerMessage) => {
       handleCanvasMessage(msg);
       handleLogMessage(msg);
-      setServerMessages((prev) => [...prev, msg]);
+      seqRef.current += 1;
+      setLatestMessage({ msg, seq: seqRef.current });
     },
     [handleCanvasMessage, handleLogMessage]
   );
@@ -69,14 +76,7 @@ export function App() {
             />
           </div>
 
-          {/* Zoom controls */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-stone-800/90 backdrop-blur text-white px-4 py-2 rounded-full flex items-center gap-4 text-xs font-[Public_Sans] z-20">
-            <button onClick={() => editor?.zoomOut()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">remove</span></button>
-            <span>{Math.round((editor?.getZoomLevel() ?? 1) * 100)}%</span>
-            <button onClick={() => editor?.zoomIn()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">add</span></button>
-            <div className="w-px h-4 bg-stone-600" />
-            <button onClick={() => editor?.zoomToFit({ animation: { duration: 300 } })} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">fit_screen</span></button>
-          </div>
+          <ZoomControls editor={editor} />
 
           {!leftOpen && (
             <button onClick={() => setLeftOpen(true)} className="absolute top-3 left-3 z-20 p-2 bg-stone-800/80 backdrop-blur text-stone-400 rounded-lg hover:text-white">
@@ -92,7 +92,7 @@ export function App() {
 
         {rightOpen && (
           <RightPanel
-            messages={serverMessages}
+            latestMessage={latestMessage}
             isConnected={isConnected}
             sessionId={sessionId}
             onSend={send}
@@ -100,6 +100,20 @@ export function App() {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function ZoomControls({ editor }: { editor: Editor | null }) {
+  const zoomLevel = useValue("zoom", () => editor?.getZoomLevel() ?? 1, [editor]);
+
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-stone-800/90 backdrop-blur text-white px-4 py-2 rounded-full flex items-center gap-4 text-xs font-[Public_Sans] z-20">
+      <button onClick={() => editor?.zoomOut()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">remove</span></button>
+      <span>{Math.round(zoomLevel * 100)}%</span>
+      <button onClick={() => editor?.zoomIn()} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">add</span></button>
+      <div className="w-px h-4 bg-stone-600" />
+      <button onClick={() => editor?.zoomToFit({ animation: { duration: 300 } })} className="hover:text-blue-400"><span className="material-symbols-outlined text-sm">fit_screen</span></button>
     </div>
   );
 }

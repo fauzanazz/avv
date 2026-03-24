@@ -27,9 +27,20 @@ export function loadSession(): PersistedSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedSession;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
     if (parsed.version !== CURRENT_VERSION) { localStorage.removeItem(STORAGE_KEY); return null; }
-    return parsed;
+    if (!Array.isArray(parsed.chatHistory)) return null;
+    if (parsed.mode !== "simple" && parsed.mode !== "ultrathink") return null;
+    const validHistory = parsed.chatHistory.filter(
+      (entry: unknown): entry is ChatEntry =>
+        typeof entry === "object" && entry !== null &&
+        typeof (entry as ChatEntry).id === "string" &&
+        typeof (entry as ChatEntry).content === "string" &&
+        typeof (entry as ChatEntry).timestamp === "string" &&
+        ["user", "agent", "thinking", "option", "system"].includes((entry as ChatEntry).type)
+    );
+    return { ...parsed, chatHistory: validHistory } as PersistedSession;
   } catch { return null; }
 }
 
