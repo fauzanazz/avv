@@ -40,7 +40,12 @@ export async function continueConversation(sessionId: string, userMessage: strin
   const state = conversations.get(sessionId);
   if (!state) return false;
   state.history.push({ role: "user", content: userMessage });
-  await runAgentTurn(state, "Continue the conversation. If the user has given enough direction, output [READY] with the final design brief.");
+
+  const modeInstruction = state.mode === "ultrathink"
+    ? "Mode: ULTRATHINK continuation. The user is responding to the design options you presented above. Interpret their reply in context of the full conversation — if they picked an option (e.g. 'A', 'B', '1', '2', or described a preference), acknowledge their choice, elaborate on that direction, and output [READY] with the final enriched design brief. If they asked a follow-up question, answer it and ask if they're ready to proceed."
+    : "Mode: SIMPLE continuation. The user is responding to your previous message. Interpret their reply in context of the full conversation above. If they made a choice or gave direction, output [READY] with the final enriched design brief incorporating their feedback. Do not treat their message in isolation — it is a reply to what you said above.";
+
+  await runAgentTurn(state, modeInstruction);
   return state.isReady;
 }
 
@@ -50,10 +55,15 @@ async function runAgentTurn(state: ConversationState, modeInstruction: string): 
 
   const historyText = history.map((t) => `${t.role === "user" ? "User" : "Agent"}: ${t.content}`).join("\n\n");
 
+  const isFirstTurn = history.filter((t) => t.role === "user").length === 1;
+  const contextNote = isFirstTurn
+    ? ""
+    : "\n\nIMPORTANT: This is a multi-turn conversation. The user's latest message is a REPLY to your previous message. Read the full conversation history above before responding.\n";
+
   let fullResponse = "";
 
   for await (const message of query({
-    prompt: `${modeInstruction}\n\n## Conversation:\n\n${historyText}\n\nRespond as the design agent.`,
+    prompt: `${modeInstruction}${contextNote}\n\n## Conversation History:\n\n${historyText}\n\nRespond as the design agent. Base your response on the FULL conversation above.`,
     options: { systemPrompt, allowedTools: [], maxTurns: 1 },
   })) {
     if ("result" in message && message.result) {
