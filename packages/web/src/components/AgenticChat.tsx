@@ -20,6 +20,9 @@ function serverMessageToEntry(msg: ServerMessage): ChatMessage | null {
   if (msg.type === "agent:option") return { id, type: "option", content: msg.description, title: msg.title, previewHtml: msg.previewHtml, timestamp: ts };
   if (msg.type === "agent:log") return { id, type: "agent", content: msg.message, timestamp: ts };
   if (msg.type === "generation:done") return { id, type: "system", content: "Generation complete.", timestamp: ts };
+  if (msg.type === "figma:pushing") return { id, type: "system", content: msg.message, timestamp: ts };
+  if (msg.type === "figma:pushed") return { id, type: "agent", content: msg.figmaUrl ? `Design pushed to Figma: ${msg.figmaUrl}` : "Design pushed to Figma successfully.", timestamp: ts };
+  if (msg.type === "figma:error") return { id, type: "system", content: `Figma error: ${msg.message}`, timestamp: ts };
   if (msg.type === "error") return { id, type: "system", content: `Error: ${msg.message}`, timestamp: ts };
   return null;
 }

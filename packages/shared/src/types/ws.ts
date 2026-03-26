@@ -23,6 +23,10 @@ export type ServerMessage =
   | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
   | { type: "ultrathink:spec"; spec: string }
   | { type: "ultrathink:ready"; enrichedPrompt: string }
+  // Figma
+  | { type: "figma:pushing"; message: string }
+  | { type: "figma:pushed"; figmaUrl: string }
+  | { type: "figma:error"; message: string }
   // Errors
   | { type: "error"; message: string };
 

@@ -2,6 +2,7 @@ import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from
 import type { DesignPlan, ViewerComponent, GenerationSession, ComponentVariant } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
+import { generationStore } from "../store/generation-store";
 import { planStore } from "../store/plan-store";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
@@ -213,6 +214,7 @@ Components are rendered vertically in document flow. CSS handles layout, not can
     };
 
     connectionStore.broadcast(sessionId, { type: "generation:created", session });
+    generationStore.save(sessionId, session);
 
     // Save plans for retry support — match by array index (components derived 1:1 from plan.components)
     for (let i = 0; i < plan.components.length; i++) {
@@ -277,15 +279,14 @@ Components are rendered vertically in document flow. CSS handles layout, not can
             createdAt: now,
           }));
 
+          const componentUpdates = { variants, status: "ready" as const };
           connectionStore.broadcast(sessionId, {
             type: "component:updated",
             sessionId: genSessionId,
             componentId: component.id,
-            updates: {
-              variants,
-              status: "ready",
-            },
+            updates: componentUpdates,
           });
+          generationStore.updateComponent(sessionId, genSessionId, component.id, componentUpdates);
         } else {
           connectionStore.broadcast(sessionId, {
             type: "component:status",
@@ -316,6 +317,14 @@ Components are rendered vertically in document flow. CSS handles layout, not can
       type: "generation:done",
       sessionId: genSessionId,
     });
+
+    // Step 5: Suggest Figma implementation
+    connectionStore.broadcast(sessionId, {
+      type: "agent:log",
+      agentId: "designer",
+      message: "All components are ready! Would you like me to implement this design in Figma?",
+    });
+    generationStore.markFigmaSuggested(sessionId);
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       sessionStore.update(sessionId, { status: "error" });
