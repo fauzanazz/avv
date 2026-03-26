@@ -322,6 +322,32 @@ describe("extractAllComponentResults", () => {
     expect(results[1].variantLabel).toBe("Bold");
   });
 
+  it("extracts from function call syntax: submit_component({...})", () => {
+    const text = `\nsubmit_component({\n  "name": "Social Proof",\n  "variant_label": "Testimonials",\n  "html": "<div>Testimonials</div>",\n  "css": ""\n})\n\nsubmit_component({\n  "name": "Social Proof",\n  "variant_label": "Logos",\n  "html": "<div>Partner Logos</div>",\n  "css": ""\n})`;
+
+    const messages = [
+      { message: { content: [{ type: "tool_result", content: [{ type: "text", text }] }] } },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(2);
+    expect(results[0].variantLabel).toBe("Testimonials");
+    expect(results[1].variantLabel).toBe("Logos");
+  });
+
+  it("extracts from [Tool: submit_component] label syntax with mixed prose", () => {
+    const text = `\n{}\n\nI'll generate 3 variants now.\n\n[Tool: submit_component]\n{"name":"Footer","variant_label":"Minimal","html":"<footer>Minimal</footer>","css":""}\n\n[Tool: submit_component]\n{"name":"Footer","variant_label":"Rich","html":"<footer>Rich</footer>","css":""}`;
+
+    const messages = [
+      { message: { content: [{ type: "tool_result", content: [{ type: "text", text }] }] } },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(2);
+    expect(results[0].variantLabel).toBe("Minimal");
+    expect(results[1].variantLabel).toBe("Rich");
+  });
+
   it("extracts from XML function_calls format (subagent format)", () => {
     const xmlText = `
 <function_calls>

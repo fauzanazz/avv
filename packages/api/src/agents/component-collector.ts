@@ -30,57 +30,91 @@ export function extractAllComponentResults(messages: SDKMessage[]): ComponentRes
     });
   }
 
-  function tryParseJson(text: string): void {
-    // 1. Try JSON array of tool_use objects (subagent format)
-    //    e.g. [{"type":"tool_use","name":"submit_component","input":{...}}]
+  /**
+   * Extract a balanced JSON object starting at position `start` in `text`
+   * using brace-depth counting. Handles braces inside string literals.
+   */
+  function extractBalancedJson(text: string, start: number): string | null {
+    if (text[start] !== "{") return null;
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (ch === "\\") { i++; continue; }
+        if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
+    }
+    return null;
+  }
+
+  /** Find ALL JSON objects in `text` that contain `"html"` and try to add them. */
+  function extractAllJsonObjects(text: string): void {
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      const braceIdx = text.indexOf("{", searchFrom);
+      if (braceIdx === -1) break;
+
+      const jsonStr = extractBalancedJson(text, braceIdx);
+      if (!jsonStr) { searchFrom = braceIdx + 1; continue; }
+
+      searchFrom = braceIdx + jsonStr.length;
+
+      if (!jsonStr.includes('"html"')) continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && typeof parsed === "object") {
+          // Direct component object
+          if (parsed.html) { tryAdd(parsed); continue; }
+          // tool_use wrapper: { name: "submit_component", input: { html: ... } }
+          if (parsed.name === "submit_component" && parsed.input?.html) {
+            tryAdd(parsed.input);
+          }
+        }
+      } catch { /* malformed JSON, skip */ }
+    }
+  }
+
+  function tryParseText(text: string): void {
+    const trimmed = text.trim();
+
+    // 1. Try as JSON (single object or array)
     try {
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
-          if (item.name === "submit_component" && item.input) {
-            tryAdd(item.input);
-          }
+          if (item.name === "submit_component" && item.input) tryAdd(item.input);
+          else if (item.html) tryAdd(item);
         }
         return;
       }
-      if (parsed && typeof parsed === "object" && parsed.html) {
-        tryAdd(parsed);
-        return;
-      }
-    } catch { /* not valid JSON, try other formats */ }
+      if (parsed && typeof parsed === "object" && parsed.html) { tryAdd(parsed); return; }
+    } catch { /* not clean JSON */ }
 
-    // 2. Try XML function_calls format (subagent format)
-    //    e.g. <invoke name="submit_component"><parameter name="html">...</parameter></invoke>
+    // 2. XML function_calls format
     if (text.includes("<invoke") && text.includes("submit_component")) {
       const invokeRegex = /<invoke\s+name="submit_component">([\s\S]*?)<\/invoke>/g;
       for (const invokeMatch of text.matchAll(invokeRegex)) {
         const body = invokeMatch[1];
         const params: Record<string, string> = {};
-        const paramRegex = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g;
-        for (const paramMatch of body.matchAll(paramRegex)) {
-          params[paramMatch[1]] = paramMatch[2];
+        for (const pm of body.matchAll(/<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g)) {
+          params[pm[1]] = pm[2];
         }
         if (params.html) {
-          tryAdd({
-            name: params.name || "",
-            html: params.html,
-            css: params.css || "",
-            variant_label: params.variant_label || undefined,
-          });
+          tryAdd({ name: params.name || "", html: params.html, css: params.css || "", variant_label: params.variant_label });
         }
       }
-      return;
+      if (results.length > 0) return;
     }
 
-    // 3. Try extracting embedded JSON with "html" key
-    const match = text.match(/\{[\s\S]*"html"[\s\S]*\}/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (parsed && typeof parsed === "object" && parsed.html) {
-          tryAdd(parsed);
-        }
-      } catch { /* ignore */ }
+    // 3. Scan for ALL embedded JSON objects containing "html" (catches every format:
+    //    submit_component({...}), [Tool: submit_component]\n{...}, mixed prose + JSON, etc.)
+    if (text.includes('"html"')) {
+      extractAllJsonObjects(text);
     }
   }
 
@@ -98,21 +132,21 @@ export function extractAllComponentResults(messages: SDKMessage[]): ComponentRes
         if (block.type === "tool_result" && Array.isArray(block.content)) {
           for (const inner of block.content) {
             if (inner.type === "text" && typeof inner.text === "string") {
-              tryParseJson(inner.text);
+              tryParseText(inner.text);
             }
           }
         }
 
         // Plain text blocks that might contain component JSON
         if (block.type === "text" && typeof block.text === "string" && block.text.includes('"html"')) {
-          tryParseJson(block.text);
+          tryParseText(block.text);
         }
       }
     }
 
     // Top-level result string
     if ("result" in msg && typeof msg.result === "string") {
-      tryParseJson(msg.result);
+      tryParseText(msg.result);
     }
   }
 
