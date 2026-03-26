@@ -235,4 +235,53 @@ describe("extractAllComponentResults", () => {
     expect(result!.html).toBe("<div>Last</div>");
     expect(result!.variantLabel).toBe("Bold");
   });
+
+  it("extracts from tool_result with nested content array (subagent MCP)", () => {
+    const componentJson = JSON.stringify({
+      name: "Hero",
+      html: "<div>Hero MCP</div>",
+      css: ".hero { color: red; }",
+      variant_label: "Minimal",
+    });
+
+    const messages = [
+      {
+        message: {
+          content: [
+            {
+              type: "tool_result",
+              content: [
+                { type: "text", text: componentJson },
+              ],
+            },
+          ],
+        },
+      },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(1);
+    expect(results[0].html).toBe("<div>Hero MCP</div>");
+    expect(results[0].variantLabel).toBe("Minimal");
+  });
+
+  it("extracts from text blocks containing component JSON", () => {
+    const messages = [
+      {
+        message: {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ name: "Nav", html: "<nav>Nav</nav>", css: "", variant_label: "Dark" }),
+            },
+          ],
+        },
+      },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(1);
+    expect(results[0].html).toBe("<nav>Nav</nav>");
+    expect(results[0].variantLabel).toBe("Dark");
+  });
 });

@@ -15,66 +15,70 @@ export function extractAllComponentResults(messages: SDKMessage[]): ComponentRes
   const results: ComponentResult[] = [];
   const seen = new Set<string>();
 
+  function tryAdd(parsed: Record<string, unknown>): void {
+    const html = parsed.html;
+    if (typeof html !== "string" || !html.trim()) return;
+    const label = (parsed.variant_label as string) || undefined;
+    const key = `${label || ""}:${html}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({
+      name: (parsed.name as string) || "",
+      html,
+      css: (parsed.css as string) || "",
+      variantLabel: label,
+    });
+  }
+
+  function tryParseJson(text: string): void {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && parsed.html) {
+        tryAdd(parsed);
+      }
+    } catch {
+      // Try to extract embedded JSON with "html" key
+      const match = text.match(/\{[\s\S]*"html"[\s\S]*\}/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          if (parsed && typeof parsed === "object" && parsed.html) {
+            tryAdd(parsed);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  }
+
   for (const msg of messages) {
     const msgAny = msg as any;
     if (msgAny.message?.content) {
       for (const block of msgAny.message.content) {
-        if (block.type === "tool_result" || block.type === "tool_use") {
-          if (block.name === "submit_component" && block.input) {
-            const html = block.input.html;
-            if (typeof html !== "string" || !html.trim()) continue;
-            const key = `${block.input.variant_label || ""}:${html}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push({
-              name: block.input.name,
-              html,
-              css: block.input.css || "",
-              variantLabel: block.input.variant_label || undefined,
-            });
+        // Direct tool_use / tool_result with structured input
+        if ((block.type === "tool_result" || block.type === "tool_use") &&
+            block.name === "submit_component" && block.input) {
+          tryAdd(block.input);
+        }
+
+        // Tool result with nested content array (subagent MCP responses)
+        if (block.type === "tool_result" && Array.isArray(block.content)) {
+          for (const inner of block.content) {
+            if (inner.type === "text" && typeof inner.text === "string") {
+              tryParseJson(inner.text);
+            }
           }
+        }
+
+        // Plain text blocks that might contain component JSON
+        if (block.type === "text" && typeof block.text === "string" && block.text.includes('"html"')) {
+          tryParseJson(block.text);
         }
       }
     }
 
+    // Top-level result string
     if ("result" in msg && typeof msg.result === "string") {
-      try {
-        const parsed = JSON.parse(msg.result);
-        if (parsed.html && typeof parsed.html === "string" && parsed.html.trim()) {
-          const key = `${parsed.variant_label || ""}:${parsed.html}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            results.push({
-              name: parsed.name,
-              html: parsed.html,
-              css: parsed.css || "",
-              variantLabel: parsed.variant_label || undefined,
-            });
-          }
-        }
-      } catch {
-        // Fallback: try extracting embedded JSON
-        const match = msg.result.match(/\{[\s\S]*"html"[\s\S]*\}/);
-        if (match) {
-          try {
-            const parsed = JSON.parse(match[0]);
-            if (parsed.html && typeof parsed.html === "string" && parsed.html.trim()) {
-              const key = `${parsed.variant_label || ""}:${parsed.html}`;
-              if (!seen.has(key)) {
-                seen.add(key);
-                results.push({
-                  name: parsed.name,
-                  html: parsed.html,
-                  css: parsed.css || "",
-                  variantLabel: parsed.variant_label || undefined,
-                });
-              }
-            }
-          } catch {
-            continue;
-          }
-        }
-      }
+      tryParseJson(msg.result);
     }
   }
 

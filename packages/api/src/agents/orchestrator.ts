@@ -271,6 +271,12 @@ Components are rendered vertically in document flow. CSS handles layout, not can
         checkAborted();
 
         const results = extractAllComponentResults(collectedMessages);
+        if (results.length === 0) {
+          console.warn(`[Agent] Builder ${agentName}: no results extracted from ${collectedMessages.length} messages`);
+          for (const m of collectedMessages) {
+            console.warn(`[Agent]   message keys: ${Object.keys(m).join(", ")}`, JSON.stringify(m).slice(0, 300));
+          }
+        }
         if (results.length > 0) {
           const now = new Date().toISOString();
           const variants: ComponentVariant[] = results.map((r, idx) => ({
