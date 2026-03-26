@@ -4,7 +4,7 @@ import { submitComponentTool } from "../src/agents/tools/submit-component";
 describe("submitComponentTool", () => {
   it("has the correct name and description", () => {
     expect(submitComponentTool.name).toBe("submit_component");
-    expect(submitComponentTool.description).toContain("Submit the generated UI component");
+    expect(submitComponentTool.description).toContain("Submit a UI component variant");
   });
 
   it("returns structured JSON for valid input", async () => {
@@ -13,6 +13,7 @@ describe("submitComponentTool", () => {
         name: "Hero Section",
         html: '<div class="bg-blue-500 p-8">Hello</div>',
         css: ".custom { color: red; }",
+        variant_label: "Bold",
       },
       undefined,
     );
@@ -25,6 +26,7 @@ describe("submitComponentTool", () => {
     expect(parsed.name).toBe("Hero Section");
     expect(parsed.html).toBe('<div class="bg-blue-500 p-8">Hello</div>');
     expect(parsed.css).toBe(".custom { color: red; }");
+    expect(parsed.variant_label).toBe("Bold");
   });
 
   it("returns error for whitespace-only HTML", async () => {
@@ -33,6 +35,7 @@ describe("submitComponentTool", () => {
         name: "Empty",
         html: "   \n\t  ",
         css: "",
+        variant_label: "Test",
       },
       undefined,
     );
@@ -50,6 +53,7 @@ describe("submitComponentTool", () => {
         name: "Tailwind Only",
         html: '<div class="flex">Content</div>',
         css: "",
+        variant_label: "Minimal",
       },
       undefined,
     );
@@ -57,5 +61,6 @@ describe("submitComponentTool", () => {
     expect(result.isError).toBeUndefined();
     const parsed = JSON.parse((result.content[0] as { type: "text"; text: string }).text);
     expect(parsed.css).toBe("");
+    expect(parsed.variant_label).toBe("Minimal");
   });
 });

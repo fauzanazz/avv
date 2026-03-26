@@ -6,7 +6,7 @@ import { planStore } from "../store/plan-store";
 import { loadPrompt } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
 import { submitComponentTool } from "./tools/submit-component";
-import { extractComponentResult } from "./component-collector";
+import { extractAllComponentResults } from "./component-collector";
 
 /** Track active abort controllers by session ID */
 const activeControllers = new Map<string, AbortController>();
@@ -25,7 +25,7 @@ function createBuilderAgent(
   const builderPrompt = loadPrompt("builder");
 
   return {
-    description: `Builds the "${component.name}" UI component. Use this agent when generating the ${component.name} component.`,
+    description: `Builds the "${component.name}" UI component with multiple design variants. Use this agent when generating the ${component.name} component.`,
     prompt: `${builderPrompt}
 
 ## Your Task
@@ -37,11 +37,12 @@ Build the "${component.name}" component for a web page.
 
 ## Instructions
 
-1. Generate beautiful, modern HTML using Tailwind CSS utility classes
-2. Call the submit_component tool with your result
-3. Use real-sounding content, not placeholders
-4. The component must render correctly when placed in a full page with other components
-5. Use full-width layout (width: 100%) — the page container handles sizing`,
+1. Generate 2-3 visually distinct design variants using Tailwind CSS utility classes
+2. Call submit_component ONCE PER VARIANT with a descriptive variant_label
+3. Each variant must be a complete, standalone HTML fragment
+4. Use real-sounding content, not placeholders
+5. Use full-width layout (width: 100%) — the viewer container handles sizing
+6. Make each variant noticeably different in style, layout, or color approach`,
     tools: ["submit_component"],
     model: "sonnet",
   };
@@ -251,12 +252,12 @@ Components are rendered vertically in document flow. CSS handles layout, not can
 
       try {
         for await (const message of query({
-          prompt: `Use the ${agentName} agent to build the "${componentPlan.name}" component.`,
+          prompt: `Use the ${agentName} agent to build the "${componentPlan.name}" component. Generate 2-3 distinct design variants.`,
           options: {
             allowedTools: ["Agent", "mcp__avv-image__request_image"],
             agents: { [agentName]: builderAgent },
             mcpServers: { "avv-image": imageServer, "avv-tools": mcpServer },
-            maxTurns: 5,
+            maxTurns: 10,
           },
         })) {
           checkAborted();
@@ -265,22 +266,23 @@ Components are rendered vertically in document flow. CSS handles layout, not can
 
         checkAborted();
 
-        const result = extractComponentResult(collectedMessages);
-        if (result) {
-          const variant: ComponentVariant = {
+        const results = extractAllComponentResults(collectedMessages);
+        if (results.length > 0) {
+          const now = new Date().toISOString();
+          const variants: ComponentVariant[] = results.map((r, idx) => ({
             id: crypto.randomUUID(),
-            html: result.html,
-            css: result.css,
-            label: "v1",
-            createdAt: new Date().toISOString(),
-          };
+            html: r.html,
+            css: r.css,
+            label: r.variantLabel || `v${idx + 1}`,
+            createdAt: now,
+          }));
 
           connectionStore.broadcast(sessionId, {
             type: "component:updated",
             sessionId: genSessionId,
             componentId: component.id,
             updates: {
-              variants: [variant],
+              variants,
               status: "ready",
             },
           });

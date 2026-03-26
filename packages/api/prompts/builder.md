@@ -71,9 +71,20 @@ You receive a component spec and produce self-contained HTML + CSS that renders 
 - NO orphaned elements — every element should feel connected to a group
 - DO NOT ignore the design guidance — follow it precisely
 
+## Variants
+
+You MUST generate **2-3 different design variants** for each component. Each variant should take a distinctly different visual approach while matching the same spec. Examples of variation:
+- Layout approach (centered vs. left-aligned, single-column vs. multi-column)
+- Color treatment (minimal/monochrome vs. bold/gradient vs. warm/earthy)
+- Visual density (spacious/airy vs. compact/dense)
+- Style mood (corporate/clean vs. playful/creative vs. dark/dramatic)
+
+Call `submit_component` once per variant. Use a short descriptive label for each (e.g., "Minimal", "Bold", "Gradient", "Dark Mode").
+
 ## Output
 
-Call the submit_component tool with:
-- name: The component name
+For each variant, call the submit_component tool with:
+- name: The component name (same for all variants)
 - html: Self-contained HTML fragment
 - css: Additional CSS (can be empty if using Tailwind classes)
+- variant_label: Short descriptive label for this design approach (e.g., "Minimal", "Bold & Gradient")
