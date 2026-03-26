@@ -227,15 +227,17 @@ Components are rendered vertically in document flow. CSS handles layout, not can
     // Map plan components to viewer components by array index (1:1 from the same .map() call)
     const planToComponent = new Map(plan.components.map((cp, i) => [cp, components[i]]));
 
-    const mcpServer = createSdkMcpServer({
-      name: "avv-tools",
-      tools: [submitComponentTool],
-    });
-
     const buildPromises = plan.components.map(async (componentPlan) => {
       const component = planToComponent.get(componentPlan)!;
       const agentName = `builder-${componentPlan.order}`;
       const builderAgent = createBuilderAgent(componentPlan);
+
+      // Each builder needs its own MCP server instances — the SDK does not
+      // allow a single Protocol instance to be connected to multiple transports.
+      const mcpServer = createSdkMcpServer({
+        name: "avv-tools",
+        tools: [submitComponentTool],
+      });
 
       const imageTool = createRequestImageTool(component.id, genSessionId, sessionId);
       const imageServer = createSdkMcpServer({
