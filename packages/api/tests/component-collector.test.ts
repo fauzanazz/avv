@@ -284,4 +284,80 @@ describe("extractAllComponentResults", () => {
     expect(results[0].html).toBe("<nav>Nav</nav>");
     expect(results[0].variantLabel).toBe("Dark");
   });
+
+  it("extracts from JSON array of tool_use objects (subagent format)", () => {
+    const toolUseArray = JSON.stringify([
+      {
+        type: "tool_use",
+        id: "tooluse_1",
+        name: "submit_component",
+        input: { name: "Footer", html: "<footer>Minimal</footer>", css: "", variant_label: "Minimal" },
+      },
+      {
+        type: "tool_use",
+        id: "tooluse_2",
+        name: "submit_component",
+        input: { name: "Footer", html: "<footer>Bold</footer>", css: ".bold{}", variant_label: "Bold" },
+      },
+    ]);
+
+    const messages = [
+      {
+        message: {
+          content: [
+            {
+              type: "tool_result",
+              content: [{ type: "text", text: toolUseArray }],
+            },
+          ],
+        },
+      },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(2);
+    expect(results[0].html).toBe("<footer>Minimal</footer>");
+    expect(results[0].variantLabel).toBe("Minimal");
+    expect(results[1].html).toBe("<footer>Bold</footer>");
+    expect(results[1].variantLabel).toBe("Bold");
+  });
+
+  it("extracts from XML function_calls format (subagent format)", () => {
+    const xmlText = `
+<function_calls>
+<invoke name="submit_component">
+<parameter name="name">Hero Section</parameter>
+<parameter name="variant_label">Classic</parameter>
+<parameter name="html"><div class="hero">Classic Hero</div></parameter>
+<parameter name="css">.hero { padding: 48px; }</parameter>
+</invoke>
+<invoke name="submit_component">
+<parameter name="name">Hero Section</parameter>
+<parameter name="variant_label">Bold</parameter>
+<parameter name="html"><div class="hero-bold">Bold Hero</div></parameter>
+<parameter name="css"></parameter>
+</invoke>
+</function_calls>`;
+
+    const messages = [
+      {
+        message: {
+          content: [
+            {
+              type: "tool_result",
+              content: [{ type: "text", text: xmlText }],
+            },
+          ],
+        },
+      },
+    ] as any[];
+
+    const results = extractAllComponentResults(messages);
+    expect(results).toHaveLength(2);
+    expect(results[0].html).toBe('<div class="hero">Classic Hero</div>');
+    expect(results[0].variantLabel).toBe("Classic");
+    expect(results[0].css).toBe(".hero { padding: 48px; }");
+    expect(results[1].html).toBe('<div class="hero-bold">Bold Hero</div>');
+    expect(results[1].variantLabel).toBe("Bold");
+  });
 });

@@ -31,22 +31,56 @@ export function extractAllComponentResults(messages: SDKMessage[]): ComponentRes
   }
 
   function tryParseJson(text: string): void {
+    // 1. Try JSON array of tool_use objects (subagent format)
+    //    e.g. [{"type":"tool_use","name":"submit_component","input":{...}}]
     try {
       const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item.name === "submit_component" && item.input) {
+            tryAdd(item.input);
+          }
+        }
+        return;
+      }
       if (parsed && typeof parsed === "object" && parsed.html) {
         tryAdd(parsed);
+        return;
       }
-    } catch {
-      // Try to extract embedded JSON with "html" key
-      const match = text.match(/\{[\s\S]*"html"[\s\S]*\}/);
-      if (match) {
-        try {
-          const parsed = JSON.parse(match[0]);
-          if (parsed && typeof parsed === "object" && parsed.html) {
-            tryAdd(parsed);
-          }
-        } catch { /* ignore */ }
+    } catch { /* not valid JSON, try other formats */ }
+
+    // 2. Try XML function_calls format (subagent format)
+    //    e.g. <invoke name="submit_component"><parameter name="html">...</parameter></invoke>
+    if (text.includes("<invoke") && text.includes("submit_component")) {
+      const invokeRegex = /<invoke\s+name="submit_component">([\s\S]*?)<\/invoke>/g;
+      for (const invokeMatch of text.matchAll(invokeRegex)) {
+        const body = invokeMatch[1];
+        const params: Record<string, string> = {};
+        const paramRegex = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g;
+        for (const paramMatch of body.matchAll(paramRegex)) {
+          params[paramMatch[1]] = paramMatch[2];
+        }
+        if (params.html) {
+          tryAdd({
+            name: params.name || "",
+            html: params.html,
+            css: params.css || "",
+            variant_label: params.variant_label || undefined,
+          });
+        }
       }
+      return;
+    }
+
+    // 3. Try extracting embedded JSON with "html" key
+    const match = text.match(/\{[\s\S]*"html"[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (parsed && typeof parsed === "object" && parsed.html) {
+          tryAdd(parsed);
+        }
+      } catch { /* ignore */ }
     }
   }
 
