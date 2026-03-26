@@ -9,6 +9,7 @@ interface AgenticChatProps {
   drainMessages: () => ServerMessage[];
   isConnected: boolean;
   sessionId: string | null;
+  isGenerating: boolean;
   onSend: (msg: ClientMessage) => void;
 }
 
@@ -27,7 +28,7 @@ function serverMessageToEntry(msg: ServerMessage): ChatMessage | null {
   return null;
 }
 
-export function AgenticChat({ messageSeq, drainMessages, isConnected, sessionId, onSend }: AgenticChatProps) {
+export function AgenticChat({ messageSeq, drainMessages, isConnected, sessionId, isGenerating, onSend }: AgenticChatProps) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"simple" | "ultrathink">("simple");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -162,6 +163,20 @@ export function AgenticChat({ messageSeq, drainMessages, isConnected, sessionId,
           );
           return null;
         })}
+        {isGenerating && (
+          <div className="flex gap-2">
+            <div className="w-6 h-6 rounded bg-amber-100 shrink-0 flex items-center justify-center">
+              <span className="material-symbols-outlined text-xs text-amber-700 animate-spin">progress_activity</span>
+            </div>
+            <div className="bg-stone-100 p-3 rounded-lg rounded-tl-none">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t border-stone-100 bg-stone-50">

@@ -15,6 +15,7 @@ export function App() {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const messageQueueRef = useRef<ServerMessage[]>([]);
   const [messageSeq, setMessageSeq] = useState(0);
@@ -26,6 +27,14 @@ export function App() {
     (msg: ServerMessage) => {
       handleComponentMessage(msg);
       handleLogMessage(msg);
+
+      if (msg.type === "generation:created" || msg.type === "figma:pushing") {
+        setIsGenerating(true);
+      }
+      if (msg.type === "generation:done" || msg.type === "error" || msg.type === "figma:pushed" || msg.type === "figma:error") {
+        setIsGenerating(false);
+      }
+
       const queue = messageQueueRef.current;
       queue.push(msg);
       if (queue.length > MAX_QUEUED_MESSAGES) {
@@ -40,7 +49,14 @@ export function App() {
     return messageQueueRef.current.splice(0);
   }, []);
 
-  const { send, isConnected, sessionId } = useAVVWebSocket({ onMessage });
+  const { send: rawSend, isConnected, sessionId } = useAVVWebSocket({ onMessage });
+
+  const send = useCallback((msg: import("@avv/shared").ClientMessage) => {
+    if (msg.type === "generate" || msg.type === "chat") {
+      setIsGenerating(true);
+    }
+    rawSend(msg);
+  }, [rawSend]);
 
   const selectedComponent = session?.components.find((c) => c.id === selectedComponentId) ?? null;
 
@@ -87,6 +103,7 @@ export function App() {
           drainMessages={drainMessages}
           isConnected={isConnected}
           sessionId={sessionId}
+          isGenerating={isGenerating}
           onSend={send}
         />
 
