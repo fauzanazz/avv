@@ -8,3 +8,6 @@ bun.lock
 
 # Agent orchestrator state (auto-generated)
 .agent-state/
+
+# Git worktrees
+.worktrees/

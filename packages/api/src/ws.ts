@@ -4,7 +4,7 @@ import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
 import { orchestrate, cancelSession } from "./agents/orchestrator";
 import { startConversation, continueConversation, getConversation, deleteConversation } from "./agents/conversation";
-import { retrySection } from "./agents/retrier";
+import { retryComponent } from "./agents/retrier";
 import { iterateComponent } from "./agents/iterator";
 
 export function createWSHandler() {
@@ -115,7 +115,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
     case "retry": {
       const sid = ws.data.sessionId;
       if (!sid) break;
-      retrySection(sid, msg.pageId, msg.sectionId).catch((err) => {
+      retryComponent(sid, msg.sessionId, msg.componentId).catch((err) => {
         console.error("[Retry] Failed:", err);
         connectionStore.send(ws, { type: "error", message: "Retry failed" });
       });
@@ -129,10 +129,10 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       }
 
       iterateComponent({
-        sessionId: sid,
-        pageId: msg.pageId,
-        sectionId: msg.sectionId,
-        sectionName: msg.sectionName,
+        wsSessionId: sid,
+        sessionId: msg.sessionId,
+        componentId: msg.componentId,
+        componentName: msg.componentName,
         currentHtml: msg.currentHtml,
         currentCss: msg.currentCss,
         instruction: msg.instruction,

@@ -1,5 +1,5 @@
-/** A section in the orchestrator's decomposition plan */
-export interface SectionPlan {
+/** A component in the orchestrator's decomposition plan */
+export interface ComponentPlan {
   name: string;
   description: string;
   htmlTag: string;
@@ -11,14 +11,14 @@ export interface SectionPlan {
 export interface DesignPlan {
   title: string;
   summary: string;
-  sections: SectionPlan[];
+  components: ComponentPlan[];
 }
 
 /** Image generation request */
 export interface ImageRequest {
   requestId: string;
-  sectionId: string;
-  pageId: string;
+  componentId: string;
+  sessionId: string;
   description: string;
   width: number;
   height: number;
@@ -28,8 +28,8 @@ export interface ImageRequest {
 /** Image generation result */
 export interface ImageResult {
   requestId: string;
-  sectionId: string;
-  pageId: string;
+  componentId: string;
+  sessionId: string;
   dataUri: string;
   width: number;
   height: number;

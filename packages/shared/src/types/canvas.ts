@@ -1,42 +1,30 @@
 export type ComponentStatus = "pending" | "generating" | "ready" | "error";
 
-/** A section within a page (nav, hero, features, etc.) */
-export interface PageSection {
+export interface ComponentVariant {
+  id: string;
+  html: string;
+  css: string;
+  label: string;
+  createdAt: string;
+}
+
+export interface ViewerComponent {
   id: string;
   name: string;
   status: ComponentStatus;
-  html: string;
-  css: string;
+  variants: ComponentVariant[];
   prompt: string;
   agentId: string;
   iteration: number;
   order: number;
 }
 
-/** A full page on the canvas — one tldraw shape */
-export interface AVVPage {
+export interface GenerationSession {
   id: string;
   title: string;
   status: ComponentStatus;
-  sections: PageSection[];
+  components: ViewerComponent[];
   prompt: string;
   mode: "simple" | "ultrathink";
   createdAt: string;
-}
-
-/** @deprecated — use AVVPage + PageSection instead */
-export interface AVVComponent {
-  id: string;
-  name: string;
-  status: ComponentStatus;
-  html: string;
-  css: string;
-  thumbnail?: string;
-  prompt: string;
-  agentId: string;
-  iteration: number;
-  width: number;
-  height: number;
-  x: number;
-  y: number;
 }

@@ -1,14 +1,14 @@
-import type { AVVPage, PageSection, ComponentStatus } from "./canvas";
+import type { GenerationSession, ViewerComponent, ComponentStatus } from "./canvas";
 import type { ImageResult } from "./agent";
 
 /** Server -> Client WebSocket messages */
 export type ServerMessage =
-  // Page lifecycle
-  | { type: "page:created"; page: AVVPage }
-  | { type: "page:status"; pageId: string; status: ComponentStatus }
-  // Section lifecycle
-  | { type: "section:updated"; pageId: string; sectionId: string; updates: Partial<PageSection> }
-  | { type: "section:status"; pageId: string; sectionId: string; status: ComponentStatus }
+  // Generation lifecycle
+  | { type: "generation:created"; session: GenerationSession }
+  | { type: "generation:status"; sessionId: string; status: ComponentStatus }
+  // Component lifecycle
+  | { type: "component:updated"; sessionId: string; componentId: string; updates: Partial<ViewerComponent> }
+  | { type: "component:status"; sessionId: string; componentId: string; status: ComponentStatus }
   // Agent activity
   | { type: "agent:log"; agentId: string; message: string }
   | { type: "agent:thinking"; agentId: string; thought: string }
@@ -18,7 +18,7 @@ export type ServerMessage =
   | { type: "generation:done"; sessionId: string }
   // Images
   | { type: "image:ready"; image: ImageResult }
-  | { type: "image:generating"; requestId: string; sectionId: string }
+  | { type: "image:generating"; requestId: string; componentId: string }
   // Chat / UltraThink
   | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
   | { type: "ultrathink:spec"; spec: string }
@@ -31,16 +31,16 @@ export type ClientMessage =
   | { type: "generate"; prompt: string; mode: "simple" | "ultrathink" }
   | {
       type: "iterate";
-      pageId: string;
-      sectionId: string;
-      sectionName: string;
+      sessionId: string;
+      componentId: string;
+      componentName: string;
       currentHtml: string;
       currentCss: string;
       instruction: string;
       iteration: number;
     }
   | { type: "chat"; message: string }
-  | { type: "retry"; pageId: string; sectionId: string }
+  | { type: "retry"; sessionId: string; componentId: string }
   | { type: "ultrathink:answer"; questionId: string; answer: string }
   | { type: "ultrathink:confirm" }
   | { type: "cancel" };

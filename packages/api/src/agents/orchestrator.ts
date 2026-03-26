@@ -1,5 +1,5 @@
 import { query, createSdkMcpServer, type SDKMessage, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
-import type { DesignPlan, AVVPage, PageSection } from "@avv/shared";
+import type { DesignPlan, ViewerComponent, GenerationSession, ComponentVariant } from "@avv/shared";
 import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { planStore } from "../store/plan-store";
@@ -20,27 +20,27 @@ export function cancelSession(sessionId: string): void {
 }
 
 function createBuilderAgent(
-  section: DesignPlan["sections"][number],
+  component: DesignPlan["components"][number],
 ): AgentDefinition {
   const builderPrompt = loadPrompt("builder");
 
   return {
-    description: `Builds the "${section.name}" UI section. Use this agent when generating the ${section.name} section.`,
+    description: `Builds the "${component.name}" UI component. Use this agent when generating the ${component.name} component.`,
     prompt: `${builderPrompt}
 
 ## Your Task
 
-Build the "${section.name}" section for a web page.
+Build the "${component.name}" component for a web page.
 
-**Description:** ${section.description}
-**Design guidance:** ${section.designGuidance}
+**Description:** ${component.description}
+**Design guidance:** ${component.designGuidance}
 
 ## Instructions
 
 1. Generate beautiful, modern HTML using Tailwind CSS utility classes
 2. Call the submit_component tool with your result
 3. Use real-sounding content, not placeholders
-4. The section must render correctly when placed in a full page with other sections
+4. The component must render correctly when placed in a full page with other components
 5. Use full-width layout (width: 100%) — the page container handles sizing`,
     tools: ["submit_component"],
     model: "sonnet",
@@ -93,12 +93,12 @@ function extractJsonObject(text: string, requiredKey: string): string | null {
 }
 
 function parsePlanFromResponse(text: string): DesignPlan | null {
-  const json = extractJsonObject(text, "sections");
+  const json = extractJsonObject(text, "components");
   if (!json) return null;
 
   try {
     const parsed = JSON.parse(json);
-    if (!parsed.sections || !Array.isArray(parsed.sections)) return null;
+    if (!parsed.components || !Array.isArray(parsed.components)) return null;
     return parsed as DesignPlan;
   } catch {
     return null;
@@ -129,7 +129,7 @@ export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOption
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
       agentId: "orchestrator",
-      message: "Analyzing prompt and creating section plan...",
+      message: "Analyzing prompt and creating component plan...",
     });
 
     let planText = "";
@@ -141,23 +141,23 @@ export async function orchestrate({ prompt, mode, sessionId }: OrchestrateOption
 
 ## Mode: ${mode}
 
-Decompose this into a section plan. Respond with ONLY a JSON object in DesignPlan format:
+Decompose this into a component plan. Respond with ONLY a JSON object in DesignPlan format:
 
 {
   "title": "Page title",
   "summary": "Brief summary of the design approach",
-  "sections": [
+  "components": [
     {
-      "name": "Section Name",
-      "description": "What this section does",
+      "name": "Component Name",
+      "description": "What this component does",
       "htmlTag": "section",
       "order": 0,
-      "designGuidance": "Specific design instructions for this section"
+      "designGuidance": "Specific design instructions for this component"
     }
   ]
 }
 
-Sections are rendered vertically in document flow. CSS handles layout, not canvas coordinates.`,
+Components are rendered vertically in document flow. CSS handles layout, not canvas coordinates.`,
       options: {
         systemPrompt: orchestratorPrompt,
         allowedTools: [],
@@ -176,7 +176,7 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
     if (!plan) {
       connectionStore.broadcast(sessionId, {
         type: "error",
-        message: "Failed to generate section plan",
+        message: "Failed to generate component plan",
       });
       sessionStore.update(sessionId, { status: "error" });
       return;
@@ -185,66 +185,65 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
     connectionStore.broadcast(sessionId, {
       type: "agent:log",
       agentId: "orchestrator",
-      message: `Plan created: ${plan.sections.length} sections to build`,
+      message: `Plan created: ${plan.components.length} components to build`,
     });
 
-    // Step 2: Create a single page with pending sections
-    const pageId = crypto.randomUUID();
-    const sections: PageSection[] = plan.sections.map((s) => ({
+    // Step 2: Create a generation session with pending components
+    const genSessionId = crypto.randomUUID();
+    const components: ViewerComponent[] = plan.components.map((s) => ({
       id: crypto.randomUUID(),
       name: s.name,
       status: "pending" as const,
-      html: "",
-      css: "",
+      variants: [],
       prompt: s.designGuidance,
       agentId: `builder-${s.order}`,
       iteration: 0,
       order: s.order,
     }));
 
-    const page: AVVPage = {
-      id: pageId,
+    const session: GenerationSession = {
+      id: genSessionId,
       title: plan.title,
       status: "generating",
-      sections,
+      components,
       prompt: finalPrompt,
       mode,
       createdAt: new Date().toISOString(),
     };
 
-    connectionStore.broadcast(sessionId, { type: "page:created", page });
+    connectionStore.broadcast(sessionId, { type: "generation:created", session });
 
-    // Save plans for retry support — match by array index (sections derived 1:1 from plan.sections)
-    for (let i = 0; i < plan.sections.length; i++) {
-      planStore.save(pageId, sections[i].id, plan.sections[i]);
+    // Save plans for retry support — match by array index (components derived 1:1 from plan.components)
+    for (let i = 0; i < plan.components.length; i++) {
+      planStore.save(genSessionId, components[i].id, plan.components[i]);
     }
 
     checkAborted();
 
     // Step 3: Spawn builder subagents in parallel
-    // Map plan sections to page sections by array index (1:1 from the same .map() call)
-    const planToSection = new Map(plan.sections.map((sp, i) => [sp, sections[i]]));
+    // Map plan components to viewer components by array index (1:1 from the same .map() call)
+    const planToComponent = new Map(plan.components.map((cp, i) => [cp, components[i]]));
 
     const mcpServer = createSdkMcpServer({
       name: "avv-tools",
       tools: [submitComponentTool],
     });
 
-    const buildPromises = plan.sections.map(async (sectionPlan) => {
-      const section = planToSection.get(sectionPlan)!;
-      const agentName = `builder-${sectionPlan.order}`;
-      const builderAgent = createBuilderAgent(sectionPlan);
+    const buildPromises = plan.components.map(async (componentPlan) => {
+      const component = planToComponent.get(componentPlan)!;
+      const agentName = `builder-${componentPlan.order}`;
+      const builderAgent = createBuilderAgent(componentPlan);
 
-      const imageTool = createRequestImageTool(section.id, pageId, sessionId);
+      const imageTool = createRequestImageTool(component.id, genSessionId, sessionId);
       const imageServer = createSdkMcpServer({
         name: "avv-image",
         tools: [imageTool],
       });
 
       connectionStore.broadcast(sessionId, {
-        type: "section:status",
-        pageId,
-        sectionId: section.id,
+        type: "component:status",
+        sessionId: genSessionId,
+        componentId: component.id,
         status: "generating",
       });
 
@@ -252,7 +251,7 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
 
       try {
         for await (const message of query({
-          prompt: `Use the ${agentName} agent to build the "${sectionPlan.name}" section.`,
+          prompt: `Use the ${agentName} agent to build the "${componentPlan.name}" component.`,
           options: {
             allowedTools: ["Agent", "mcp__avv-image__request_image"],
             agents: { [agentName]: builderAgent },
@@ -268,21 +267,28 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
 
         const result = extractComponentResult(collectedMessages);
         if (result) {
+          const variant: ComponentVariant = {
+            id: crypto.randomUUID(),
+            html: result.html,
+            css: result.css,
+            label: "v1",
+            createdAt: new Date().toISOString(),
+          };
+
           connectionStore.broadcast(sessionId, {
-            type: "section:updated",
-            pageId,
-            sectionId: section.id,
+            type: "component:updated",
+            sessionId: genSessionId,
+            componentId: component.id,
             updates: {
-              html: result.html,
-              css: result.css,
+              variants: [variant],
               status: "ready",
             },
           });
         } else {
           connectionStore.broadcast(sessionId, {
-            type: "section:status",
-            pageId,
-            sectionId: section.id,
+            type: "component:status",
+            sessionId: genSessionId,
+            componentId: component.id,
             status: "error",
           });
         }
@@ -290,9 +296,9 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
         if (err instanceof DOMException && err.name === "AbortError") throw err;
         console.error(`[Agent] Builder ${agentName} failed:`, err);
         connectionStore.broadcast(sessionId, {
-          type: "section:status",
-          pageId,
-          sectionId: section.id,
+          type: "component:status",
+          sessionId: genSessionId,
+          componentId: component.id,
           status: "error",
         });
       }
@@ -306,7 +312,7 @@ Sections are rendered vertically in document flow. CSS handles layout, not canva
     sessionStore.update(sessionId, { status: "done" });
     connectionStore.broadcast(sessionId, {
       type: "generation:done",
-      sessionId,
+      sessionId: genSessionId,
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {

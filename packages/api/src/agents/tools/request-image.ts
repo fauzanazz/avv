@@ -4,15 +4,15 @@ import { imageQueue } from "../image-queue";
 import { connectionStore } from "../../store";
 
 /**
- * Creates a request_image tool bound to a specific section, page, and session.
+ * Creates a request_image tool bound to a specific component, generation session, and WS session.
  * When called, it pushes the request to the imageQueue and returns
  * a placeholder immediately. The real image is broadcast via WebSocket
  * when generation completes.
  */
-export function createRequestImageTool(sectionId: string, pageId: string, sessionId: string) {
+export function createRequestImageTool(componentId: string, genSessionId: string, wsSessionId: string) {
   return tool(
     "request_image",
-    "Request an AI-generated image for this section. Returns immediately with a placeholder URL. The real image will be injected later via WebSocket.",
+    "Request an AI-generated image for this component. Returns immediately with a placeholder URL. The real image will be injected later via WebSocket.",
     {
       description: z.string().describe("Description of the image to generate"),
       width: z.number().int().min(16).max(2048).default(400).describe("Image width in pixels (16-2048)"),
@@ -23,25 +23,25 @@ export function createRequestImageTool(sectionId: string, pageId: string, sessio
       const requestId = crypto.randomUUID();
 
       // Broadcast that image generation has started
-      connectionStore.broadcast(sessionId, {
+      connectionStore.broadcast(wsSessionId, {
         type: "image:generating",
         requestId,
-        sectionId,
+        componentId,
       });
 
       // Push to queue — real image will be broadcast when ready
       imageQueue.push(
         {
           requestId,
-          sectionId,
-          pageId,
+          componentId,
+          sessionId: genSessionId,
           description: args.description,
           width: args.width,
           height: args.height,
           style: args.style,
         },
         (result) => {
-          connectionStore.broadcast(sessionId, {
+          connectionStore.broadcast(wsSessionId, {
             type: "image:ready",
             image: result,
           });

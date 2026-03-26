@@ -25,14 +25,14 @@ describe("orchestrate", () => {
     broadcastSpy.mockRestore();
   });
 
-  it("creates page and broadcasts section updates in simple mode", async () => {
+  it("creates generation session and broadcasts component updates in simple mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      sections: [
+      components: [
         {
           name: "Hero",
-          description: "Hero section",
+          description: "Hero component",
           htmlTag: "section",
           order: 0,
           designGuidance: "Make it bold",
@@ -68,12 +68,12 @@ describe("orchestrate", () => {
     });
 
     const createCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "page:created"
+      ([, msg]: [string, { type: string }]) => msg.type === "generation:created"
     );
     expect(createCalls.length).toBe(1);
 
     const updateCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "section:updated"
+      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
     );
     expect(updateCalls.length).toBe(1);
   });
@@ -82,10 +82,10 @@ describe("orchestrate", () => {
     const planJson = JSON.stringify({
       title: "Test",
       summary: "Test",
-      sections: [
+      components: [
         {
           name: "Code",
-          description: "Code section",
+          description: "Code component",
           htmlTag: "section",
           order: 0,
           designGuidance: "Show code",
@@ -121,23 +121,23 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Verify the section was updated with the full HTML (not truncated at first })
     const updateCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "section:updated"
+      ([, msg]: [string, { type: string }]) => msg.type === "component:updated"
     );
     expect(updateCalls.length).toBe(1);
-    const updates = (updateCalls[0][1] as Record<string, unknown>).updates as Record<string, string>;
-    expect(updates.html).toContain("function() { return '}'; }");
+    const updates = (updateCalls[0][1] as Record<string, unknown>).updates as Record<string, unknown>;
+    const variants = updates.variants as Array<{ html: string }>;
+    expect(variants[0].html).toContain("function() { return '}'; }");
   });
 
-  it("saves plans to plan store after creating sections", async () => {
+  it("saves plans to plan store after creating components", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      sections: [
+      components: [
         {
           name: "Hero",
-          description: "Hero section",
+          description: "Hero component",
           htmlTag: "section",
           order: 0,
           designGuidance: "Make it bold",
@@ -172,27 +172,25 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Find the pageId and sectionId from the page:created broadcast
     const createCalls = broadcastSpy.mock.calls.filter(
-      ([, msg]: [string, { type: string }]) => msg.type === "page:created"
+      ([, msg]: [string, { type: string }]) => msg.type === "generation:created"
     );
     expect(createCalls.length).toBe(1);
-    const page = (createCalls[0][1] as Record<string, unknown>).page as { id: string; sections: Array<{ id: string }> };
-    const pageId = page.id;
-    const sectionId = page.sections[0].id;
+    const genSession = (createCalls[0][1] as Record<string, unknown>).session as { id: string; components: Array<{ id: string }> };
+    const genSessionId = genSession.id;
+    const componentId = genSession.components[0].id;
 
-    // Verify plan was saved by pageId + sectionId
-    const savedPlan = planStore.get(pageId, sectionId);
+    const savedPlan = planStore.get(genSessionId, componentId);
     expect(savedPlan).toBeDefined();
     expect(savedPlan!.name).toBe("Hero");
     expect(savedPlan!.designGuidance).toBe("Make it bold");
   });
 
-  it("handles empty sections array in ultrathink mode", async () => {
+  it("handles empty components array in ultrathink mode", async () => {
     const planJson = JSON.stringify({
       title: "Test Page",
       summary: "A test page",
-      sections: [],
+      components: [],
     });
 
     mockQuery.mockImplementation(() => {
@@ -210,7 +208,6 @@ describe("orchestrate", () => {
       sessionId: session.id,
     });
 
-    // Should complete without errors
     const updatedSession = sessionStore.get(session.id);
     expect(updatedSession?.status).toBe("done");
   });

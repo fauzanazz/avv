@@ -33,8 +33,8 @@ class ImageQueue {
       console.error(`[ImageQueue] Failed to generate image:`, err);
       const fallback: ImageResult = {
         requestId: item.request.requestId,
-        sectionId: item.request.sectionId,
-        pageId: item.request.pageId,
+        componentId: item.request.componentId,
+        sessionId: item.request.sessionId,
         dataUri: createPlaceholderSvg(item.request.width, item.request.height, item.request.description),
         width: item.request.width,
         height: item.request.height,
@@ -86,8 +86,8 @@ Respond with ONLY the image — no text explanation.`,
 
   return {
     requestId: request.requestId,
-    sectionId: request.sectionId,
-    pageId: request.pageId,
+    componentId: request.componentId,
+    sessionId: request.sessionId,
     dataUri: imageDataUri,
     width: request.width,
     height: request.height,

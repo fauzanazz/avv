@@ -107,9 +107,9 @@ describe("prompt content quality", () => {
     expect(content).toContain("Blog");
   });
 
-  test("orchestrator has section rules", () => {
+  test("orchestrator has component rules", () => {
     const content = loadPrompt("orchestrator");
-    expect(content).toContain("Sections are rendered vertically");
+    expect(content).toContain("self-contained UI section");
     expect(content).toContain("full-width");
   });
 

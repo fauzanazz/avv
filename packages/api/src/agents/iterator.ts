@@ -1,14 +1,15 @@
 import { query, createSdkMcpServer, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
+import type { ComponentVariant } from "@avv/shared";
 import { connectionStore } from "../store";
 import { extractComponentResult } from "./component-collector";
 import { loadPrompt } from "./prompt-loader";
 import { submitComponentTool } from "./tools/submit-component";
 
 export interface IterateOptions {
+  wsSessionId: string;
   sessionId: string;
-  pageId: string;
-  sectionId: string;
-  sectionName: string;
+  componentId: string;
+  componentName: string;
   currentHtml: string;
   currentCss: string;
   instruction: string;
@@ -20,10 +21,10 @@ export interface IterateOptions {
  * and the user's refinement instruction.
  */
 export async function iterateComponent({
+  wsSessionId,
   sessionId,
-  pageId,
-  sectionId,
-  sectionName,
+  componentId,
+  componentName,
   currentHtml,
   currentCss,
   instruction,
@@ -31,26 +32,26 @@ export async function iterateComponent({
 }: IterateOptions): Promise<void> {
   const builderPrompt = loadPrompt("builder");
 
-  connectionStore.broadcast(sessionId, {
-    type: "section:status",
-    pageId,
-    sectionId,
+  connectionStore.broadcast(wsSessionId, {
+    type: "component:status",
+    sessionId,
+    componentId,
     status: "generating",
   });
 
-  connectionStore.broadcast(sessionId, {
+  connectionStore.broadcast(wsSessionId, {
     type: "agent:log",
     agentId: "iterator",
-    message: `Iterating on "${sectionName}": ${instruction}`,
+    message: `Iterating on "${componentName}": ${instruction}`,
   });
 
   const iteratorAgent: AgentDefinition = {
-    description: `Iterates on the "${sectionName}" section based on user feedback.`,
+    description: `Iterates on the "${componentName}" component based on user feedback.`,
     prompt: `${builderPrompt}
 
 ## Your Task
 
-You are refining an existing UI section called "${sectionName}".
+You are refining an existing UI component called "${componentName}".
 This is iteration #${iteration + 1}.
 
 ## Current HTML:
@@ -79,7 +80,7 @@ ${currentCss}
 
   try {
     for await (const message of query({
-      prompt: `Use the iterator agent to refine the "${sectionName}" section. The user says: "${instruction}"`,
+      prompt: `Use the iterator agent to refine the "${componentName}" component. The user says: "${instruction}"`,
       options: {
         allowedTools: ["Agent", "mcp__avv-tools__submit_component"],
         agents: { iterator: iteratorAgent },
@@ -97,31 +98,37 @@ ${currentCss}
 
     const result = extractComponentResult(collectedMessages);
     if (result) {
-      connectionStore.broadcast(sessionId, {
-        type: "section:updated",
-        pageId,
-        sectionId,
+      const variant: ComponentVariant = {
+        id: crypto.randomUUID(),
+        html: result.html,
+        css: result.css,
+        label: `v${iteration + 1}`,
+        createdAt: new Date().toISOString(),
+      };
+      connectionStore.broadcast(wsSessionId, {
+        type: "component:updated",
+        sessionId,
+        componentId,
         updates: {
-          html: result.html,
-          css: result.css,
+          variants: [variant],
           status: "ready",
           iteration: iteration + 1,
         },
       });
     } else {
-      connectionStore.broadcast(sessionId, {
-        type: "section:status",
-        pageId,
-        sectionId,
+      connectionStore.broadcast(wsSessionId, {
+        type: "component:status",
+        sessionId,
+        componentId,
         status: "error",
       });
     }
   } catch (err) {
     console.error(`[Iterator] Failed:`, err);
-    connectionStore.broadcast(sessionId, {
-      type: "section:status",
-      pageId,
-      sectionId,
+    connectionStore.broadcast(wsSessionId, {
+      type: "component:status",
+      sessionId,
+      componentId,
       status: "error",
     });
   }
