@@ -1,5 +1,11 @@
 export { orchestrate } from "./orchestrator";
 export type { OrchestrateOptions } from "./orchestrator";
 export { startConversation, continueConversation, getConversation, deleteConversation } from "./conversation";
+export { generateDesignSystems } from "./design-system-generator";
+export type { GenerateDesignSystemOptions } from "./design-system-generator";
+export { generateLayouts } from "./layout-generator";
+export type { GenerateLayoutsOptions } from "./layout-generator";
 export { retryComponent } from "./retrier";
 export { pushToFigma } from "./figma-pusher";
+export { fetchFigmaAsReference, importFigmaAsScreen } from "./figma-fetcher";
+export type { FigmaFetchOptions, FigmaImportOptions } from "./figma-fetcher";

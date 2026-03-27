@@ -1,4 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { connectionStore } from "../store";
 import { loadPrompt } from "./prompt-loader";
 
@@ -10,6 +10,32 @@ export interface ConversationState {
   mode: "simple" | "ultrathink";
   isReady: boolean;
   enrichedPrompt: string;
+}
+
+/**
+ * Extract text content from an SDK assistant message's content blocks.
+ * Filters to only text-type blocks and joins them, avoiding [object Object]
+ * from thinking/tool_use blocks that lack a `.text` property.
+ */
+function extractTextFromAssistantMessage(message: SDKMessage): string | null {
+  if (message.type !== "assistant" || !("message" in message)) return null;
+  const msg = (message as { message: { content: unknown[] } }).message;
+  if (!msg?.content || !Array.isArray(msg.content)) return null;
+  return msg.content
+    .filter((block: unknown) => {
+      const b = block as { type?: string; text?: string };
+      return b.type === "text" && typeof b.text === "string";
+    })
+    .map((block: unknown) => (block as { text: string }).text)
+    .join("\n");
+}
+
+/**
+ * Sanitize a response string by removing [object Object] artifacts
+ * that may leak from SDK content-block serialization.
+ */
+function sanitizeResponse(text: string): string {
+  return text.replace(/\[object Object\]/g, "").replace(/\s{3,}/g, "\n\n");
 }
 
 const conversations = new Map<string, ConversationState>();
@@ -28,9 +54,7 @@ export async function startConversation(sessionId: string, userPrompt: string, m
   };
   conversations.set(sessionId, state);
 
-  const modeInstruction = mode === "simple"
-    ? "Mode: SIMPLE. Analyze quickly, share brief thinking, then output [READY] with your enriched design brief. Do NOT ask questions — make smart decisions yourself."
-    : "Mode: ULTRATHINK. Analyze thoroughly, share thinking, propose 2-3 design options with HTML preview snippets. Ask the user which direction they prefer. Only output [READY] after user confirms.";
+  const modeInstruction = "Analyze the user's request quickly, share brief thinking about the design direction, then output [READY] with your enriched design brief. Do NOT ask questions — make smart design decisions yourself. The design system generator will handle colors, fonts, and spacing.";
 
   await runAgentTurn(state, modeInstruction);
   return state.isReady;
@@ -41,9 +65,7 @@ export async function continueConversation(sessionId: string, userMessage: strin
   if (!state) return false;
   state.history.push({ role: "user", content: userMessage });
 
-  const modeInstruction = state.mode === "ultrathink"
-    ? "Mode: ULTRATHINK continuation. The user is responding to the design options you presented above. Interpret their reply in context of the full conversation — if they picked an option (e.g. 'A', 'B', '1', '2', or described a preference), acknowledge their choice, elaborate on that direction, and output [READY] with the final enriched design brief. If they asked a follow-up question, answer it and ask if they're ready to proceed."
-    : "Mode: SIMPLE continuation. The user is responding to your previous message. Interpret their reply in context of the full conversation above. If they made a choice or gave direction, output [READY] with the final enriched design brief incorporating their feedback. Do not treat their message in isolation — it is a reply to what you said above.";
+  const modeInstruction = "The user is responding to your previous message. Interpret their reply in context of the full conversation above. If they made a choice or gave direction, output [READY] with the final enriched design brief incorporating their feedback. Do not treat their message in isolation — it is a reply to what you said above.";
 
   await runAgentTurn(state, modeInstruction);
   return state.isReady;
@@ -61,14 +83,25 @@ async function runAgentTurn(state: ConversationState, modeInstruction: string): 
     : "\n\nIMPORTANT: This is a multi-turn conversation. The user's latest message is a REPLY to your previous message. Read the full conversation history above before responding.\n";
 
   let fullResponse = "";
+  let assistantText = "";
 
   for await (const message of query({
     prompt: `${modeInstruction}${contextNote}\n\n## Conversation History:\n\n${historyText}\n\nRespond as the design agent. Base your response on the FULL conversation above.`,
     options: { systemPrompt, allowedTools: [], maxTurns: 1 },
   })) {
+    const extracted = extractTextFromAssistantMessage(message);
+    if (extracted) assistantText = extracted;
     if ("result" in message && message.result) {
-      fullResponse = message.result;
+      fullResponse = typeof message.result === "string" ? message.result : String(message.result);
     }
+  }
+
+  // Prefer SDK result, but fall back to assistant message text if result
+  // contains [object Object] artifacts from content-block serialization
+  if (fullResponse.includes("[object Object]") && assistantText) {
+    fullResponse = assistantText;
+  } else if (fullResponse.includes("[object Object]")) {
+    fullResponse = sanitizeResponse(fullResponse);
   }
 
   state.history.push({ role: "assistant", content: fullResponse });

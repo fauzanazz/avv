@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { join } from "path";
 import { renameSync } from "fs";
-import { loadPrompt, validatePrompts, clearPromptCache } from "./prompt-loader";
+import { loadPrompt, loadSkill, loadBuilderSkills, validatePrompts, clearPromptCache } from "./prompt-loader";
 
 const PROMPTS_DIR = join(import.meta.dir, "..", "..", "prompts");
 
@@ -19,8 +19,8 @@ describe("loadPrompt", () => {
   test("loads builder prompt", () => {
     const content = loadPrompt("builder");
     expect(content).toContain("# AVV Builder Agent");
-    expect(content).toContain("## Design System");
-    expect(content).toContain("## Anti-Patterns");
+    expect(content).toContain("## Design Philosophy");
+    expect(content).toContain("## Technical Constraints");
   });
 
   test("loads conversation prompt", () => {
@@ -96,6 +96,47 @@ describe("clearPromptCache", () => {
   });
 });
 
+describe("loadSkill", () => {
+  test("loads design-intent skill", () => {
+    const content = loadSkill("design-intent");
+    expect(content).toContain("Design Intent");
+    expect(content).toContain("Where Defaults Hide");
+  });
+
+  test("loads animation-craft skill", () => {
+    const content = loadSkill("animation-craft");
+    expect(content).toContain("Animation Craft");
+    expect(content).toContain("ease-out");
+  });
+
+  test("loads color-and-type skill", () => {
+    const content = loadSkill("color-and-type");
+    expect(content).toContain("OKLCH");
+    expect(content).toContain("Tinted Neutrals");
+  });
+
+  test("loads quality-baseline skill", () => {
+    const content = loadSkill("quality-baseline");
+    expect(content).toContain("Quality Baseline");
+    expect(content).toContain("Hard Constraints");
+  });
+});
+
+describe("loadBuilderSkills", () => {
+  test("concatenates all builder skills", () => {
+    const combined = loadBuilderSkills();
+    expect(combined).toContain("Design Intent");
+    expect(combined).toContain("Animation Craft");
+    expect(combined).toContain("OKLCH");
+    expect(combined).toContain("Quality Baseline");
+  });
+
+  test("separates skills with dividers", () => {
+    const combined = loadBuilderSkills();
+    expect(combined).toContain("---");
+  });
+});
+
 describe("prompt content quality", () => {
   test("orchestrator has page archetypes", () => {
     const content = loadPrompt("orchestrator");
@@ -122,34 +163,36 @@ describe("prompt content quality", () => {
   test("builder has design system", () => {
     const content = loadPrompt("builder");
     expect(content).toContain("Typography");
-    expect(content).toContain("Colors");
-    expect(content).toContain("Spacing");
-    expect(content).toContain("#2563eb");
+    expect(content).toContain("Color & Theme");
+    expect(content).toContain("Layout & Space");
+    expect(content).toContain("Surface & Depth");
   });
 
   test("builder has content rules", () => {
     const content = loadPrompt("builder");
     expect(content).toContain("NOT lorem ipsum");
-    expect(content).toContain("NO external URLs");
+    expect(content).toContain("NO JavaScript");
   });
 
-  test("conversation has mode rules", () => {
+  test("conversation explains the AVV flow", () => {
     const content = loadPrompt("conversation");
-    expect(content).toContain("SIMPLE");
-    expect(content).toContain("ULTRATHINK");
+    expect(content).toContain("Design System Generator");
+    expect(content).toContain("Layout Generator");
   });
 
   test("conversation has response format blocks", () => {
     const content = loadPrompt("conversation");
     expect(content).toContain("[THINKING]");
-    expect(content).toContain("[OPTION");
     expect(content).toContain("[READY]");
   });
 
-  test("all prompts include anti-patterns section", () => {
-    for (const name of ["orchestrator", "builder", "conversation"] as const) {
+  test("all prompts include anti-patterns or constraints section", () => {
+    for (const name of ["orchestrator", "conversation"] as const) {
       const content = loadPrompt(name);
       expect(content).toContain("Anti-Patterns");
     }
+    const builder = loadPrompt("builder");
+    expect(builder).toContain("DON'T");
+    expect(builder).toContain("Technical Constraints");
   });
 });

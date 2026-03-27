@@ -2,12 +2,14 @@ import type { ServerWebSocket } from "bun";
 import type { ClientMessage } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import { sessionStore } from "./store";
-import { generationStore } from "./store/generation-store";
-import { orchestrate, cancelSession } from "./agents/orchestrator";
+import { projectStore } from "./store/project-store";
+import { cancelSession } from "./agents/orchestrator";
 import { startConversation, continueConversation, getConversation, deleteConversation } from "./agents/conversation";
+import { generateDesignSystems } from "./agents/design-system-generator";
+import { generateLayouts } from "./agents/layout-generator";
 import { retryComponent } from "./agents/retrier";
 import { iterateComponent } from "./agents/iterator";
-import { pushToFigma } from "./agents/figma-pusher";
+import { fetchFigmaAsReference, importFigmaAsScreen } from "./agents/figma-fetcher";
 
 export function createWSHandler() {
   return {
@@ -58,21 +60,25 @@ export function createWSHandler() {
   };
 }
 
-function triggerGeneration(ws: ServerWebSocket<WSData>, sessionId: string, enrichedPrompt: string, mode: "simple" | "ultrathink"): void {
-  deleteConversation(sessionId);
-  orchestrate({ prompt: enrichedPrompt, mode, sessionId }).catch((err) => {
-    console.error("[Orchestrate] Failed:", err);
-    connectionStore.send(ws, { type: "error", message: "Generation failed" });
+function triggerDesignSystemGeneration(ws: ServerWebSocket<WSData>, sessionId: string, enrichedPrompt: string): void {
+  const project = projectStore.getBySession(sessionId);
+  if (!project) {
+    const newProject = projectStore.create(sessionId, "Untitled Project");
+    connectionStore.broadcast(sessionId, { type: "project:created", project: newProject });
+  }
+
+  generateDesignSystems({ prompt: enrichedPrompt, sessionId }).catch((err) => {
+    console.error("[DesignSystem] Failed:", err);
+    connectionStore.send(ws, { type: "error", message: "Design system generation failed" });
   });
 }
 
 function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): void {
   switch (msg.type) {
     case "generate": {
-      // Remove socket from old session before joining a new one
       connectionStore.remove(ws);
 
-      const session = sessionStore.create(msg.prompt, msg.mode);
+      const session = sessionStore.create(msg.prompt, "simple");
       connectionStore.add(session.id, ws);
       ws.data.sessionId = session.id;
 
@@ -81,10 +87,10 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
         sessionId: session.id,
       });
 
-      startConversation(session.id, msg.prompt, msg.mode).then((isReady) => {
+      startConversation(session.id, msg.prompt, "simple").then((isReady) => {
         if (isReady) {
           const convo = getConversation(session.id);
-          if (convo) triggerGeneration(ws, session.id, convo.enrichedPrompt, convo.mode);
+          if (convo) triggerDesignSystemGeneration(ws, session.id, convo.enrichedPrompt);
         }
       }).catch((err) => {
         console.error("[Conversation] Failed:", err);
@@ -92,28 +98,21 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       });
       break;
     }
+
     case "chat": {
       const sid = ws.data.sessionId;
       if (!sid) break;
 
-      // Check if user is confirming Figma push after generation
-      const generation = generationStore.get(sid);
-      if (generation?.figmaSuggested && isFigmaConfirmation(msg.message)) {
-        triggerFigmaPush(ws, sid, generation.session.title, generation.session.components);
-        break;
-      }
-
-      // Short-circuit: if conversation is already READY, trigger generation directly
       const existingConvo = getConversation(sid);
       if (existingConvo?.isReady) {
-        triggerGeneration(ws, sid, existingConvo.enrichedPrompt, existingConvo.mode);
+        triggerDesignSystemGeneration(ws, sid, existingConvo.enrichedPrompt);
         break;
       }
 
       continueConversation(sid, msg.message).then((isReady) => {
         if (isReady) {
           const convo = getConversation(sid);
-          if (convo) triggerGeneration(ws, sid, convo.enrichedPrompt, convo.mode);
+          if (convo) triggerDesignSystemGeneration(ws, sid, convo.enrichedPrompt);
         }
       }).catch((err) => {
         console.error("[Conversation] Failed:", err);
@@ -121,6 +120,151 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       });
       break;
     }
+
+    case "select:designsystem": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const ds = projectStore.selectDesignSystem(sid, msg.designSystemId);
+      if (!ds) {
+        connectionStore.send(ws, { type: "error", message: "Design system not found" });
+        break;
+      }
+
+      connectionStore.broadcast(sid, { type: "designsystem:selected", designSystem: ds });
+
+      const convo = getConversation(sid);
+      const prompt = convo?.enrichedPrompt || projectStore.getBySession(sid)?.screens[0]?.prompt || "";
+
+      generateLayouts({ prompt, sessionId: sid, designSystem: ds }).catch((err) => {
+        console.error("[Layout] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Layout generation failed" });
+      });
+      break;
+    }
+
+    case "update:designsystem": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const updated = projectStore.updateDesignSystemTokens(sid, msg.tokens);
+      if (!updated) {
+        connectionStore.send(ws, { type: "error", message: "No active design system" });
+        break;
+      }
+
+      connectionStore.broadcast(sid, { type: "designsystem:updated", designSystem: updated });
+      break;
+    }
+
+    case "select:layout": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const layout = projectStore.selectLayout(sid, msg.screenId, msg.layoutId);
+      if (!layout) {
+        connectionStore.send(ws, { type: "error", message: "Layout not found" });
+        break;
+      }
+
+      connectionStore.broadcast(sid, { type: "layout:selected", screenId: msg.screenId, layoutId: msg.layoutId });
+
+      const screen = projectStore.getScreen(sid, msg.screenId);
+      if (screen) {
+        connectionStore.broadcast(sid, {
+          type: "screen:updated",
+          screenId: msg.screenId,
+          updates: { components: screen.components, status: "ready" },
+        });
+      }
+      break;
+    }
+
+    case "add:screen": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const project = projectStore.getBySession(sid);
+      if (!project?.designSystem) {
+        connectionStore.send(ws, { type: "error", message: "Select a design system first" });
+        break;
+      }
+
+      generateLayouts({
+        prompt: msg.prompt,
+        sessionId: sid,
+        designSystem: project.designSystem,
+      }).catch((err) => {
+        console.error("[Layout] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Screen generation failed" });
+      });
+      break;
+    }
+
+    case "edit:screen": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const project = projectStore.getBySession(sid);
+      const screen = projectStore.getScreen(sid, msg.screenId);
+      if (!project?.designSystem || !screen) {
+        connectionStore.send(ws, { type: "error", message: "Screen or design system not found" });
+        break;
+      }
+
+      generateLayouts({
+        prompt: `${screen.prompt}\n\nRefinement: ${msg.instruction}`,
+        sessionId: sid,
+        designSystem: project.designSystem,
+        screenName: screen.name,
+      }).catch((err) => {
+        console.error("[Layout] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Screen edit failed" });
+      });
+      break;
+    }
+
+    case "regenerate:layouts": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const project = projectStore.getBySession(sid);
+      const screen = projectStore.getScreen(sid, msg.screenId);
+      if (!project?.designSystem || !screen) {
+        connectionStore.send(ws, { type: "error", message: "Screen or design system not found" });
+        break;
+      }
+
+      generateLayouts({
+        prompt: screen.prompt,
+        sessionId: sid,
+        designSystem: project.designSystem,
+        screenName: screen.name,
+      }).catch((err) => {
+        console.error("[Layout] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Layout regeneration failed" });
+      });
+      break;
+    }
+
+    case "regenerate:designsystem": {
+      const sid = ws.data.sessionId;
+      if (!sid) break;
+
+      const convo = getConversation(sid);
+      const prompt = convo?.enrichedPrompt || "";
+      if (!prompt) {
+        connectionStore.send(ws, { type: "error", message: "No design context available" });
+        break;
+      }
+
+      generateDesignSystems({ prompt, sessionId: sid }).catch((err) => {
+        console.error("[DesignSystem] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Design system regeneration failed" });
+      });
+      break;
+    }
+
     case "retry": {
       const sid = ws.data.sessionId;
       if (!sid) break;
@@ -130,6 +274,7 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       });
       break;
     }
+
     case "iterate": {
       const sid = ws.data.sessionId;
       if (!sid) {
@@ -152,6 +297,43 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       });
       break;
     }
+
+    case "figma:fetch": {
+      const sid = ws.data.sessionId;
+      if (!sid) {
+        connectionStore.send(ws, { type: "error", message: "No active session" });
+        break;
+      }
+
+      fetchFigmaAsReference({
+        wsSessionId: sid,
+        figmaUrl: msg.figmaUrl,
+        nodeId: msg.nodeId,
+      }).catch((err) => {
+        console.error("[FigmaFetch] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Figma fetch failed" });
+      });
+      break;
+    }
+
+    case "figma:import": {
+      const sid = ws.data.sessionId;
+      if (!sid) {
+        connectionStore.send(ws, { type: "error", message: "No active session" });
+        break;
+      }
+
+      importFigmaAsScreen({
+        wsSessionId: sid,
+        figmaUrl: msg.figmaUrl,
+        nodeId: msg.nodeId,
+      }).catch((err) => {
+        console.error("[FigmaImport] Failed:", err);
+        connectionStore.send(ws, { type: "error", message: "Figma import failed" });
+      });
+      break;
+    }
+
     case "cancel": {
       const cancelSid = ws.data.sessionId;
       if (!cancelSid) {
@@ -165,22 +347,4 @@ function handleClientMessage(ws: ServerWebSocket<WSData>, msg: ClientMessage): v
       break;
     }
   }
-}
-
-const FIGMA_KEYWORDS = /\b(yes|yeah|yep|sure|ok|okay|do it|go ahead|please|figma|implement|push|create)\b/i;
-
-function isFigmaConfirmation(message: string): boolean {
-  return FIGMA_KEYWORDS.test(message.toLowerCase());
-}
-
-function triggerFigmaPush(
-  ws: ServerWebSocket<WSData>,
-  wsSessionId: string,
-  title: string,
-  components: import("@avv/shared").ViewerComponent[]
-): void {
-  pushToFigma({ wsSessionId, title, components }).catch((err) => {
-    console.error("[FigmaPush] Failed:", err);
-    connectionStore.send(ws, { type: "error", message: "Figma push failed" });
-  });
 }

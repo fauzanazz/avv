@@ -4,7 +4,7 @@ import { connectionStore } from "../store";
 import { sessionStore } from "../store";
 import { generationStore } from "../store/generation-store";
 import { planStore } from "../store/plan-store";
-import { loadPrompt } from "./prompt-loader";
+import { loadPrompt, loadBuilderSkills } from "./prompt-loader";
 import { createRequestImageTool } from "./tools";
 import { submitComponentTool } from "./tools/submit-component";
 import { extractAllComponentResults } from "./component-collector";
@@ -24,10 +24,19 @@ function createBuilderAgent(
   component: DesignPlan["components"][number],
 ): AgentDefinition {
   const builderPrompt = loadPrompt("builder");
+  const skills = loadBuilderSkills();
 
   return {
     description: `Builds the "${component.name}" UI component with multiple design variants. Use this agent when generating the ${component.name} component.`,
     prompt: `${builderPrompt}
+
+---
+
+## Skill References
+
+${skills}
+
+---
 
 ## Your Task
 
@@ -262,6 +271,8 @@ Components are rendered vertically in document flow. CSS handles layout, not can
             agents: { [agentName]: builderAgent },
             mcpServers: { "avv-image": imageServer, "avv-tools": mcpServer },
             maxTurns: 10,
+            thinking: { type: "enabled", budgetTokens: 10000 },
+            effort: "high",
           },
         })) {
           checkAborted();

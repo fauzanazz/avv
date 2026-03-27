@@ -1,37 +1,54 @@
 import { useState, useCallback, useRef } from "react";
-import type { ServerMessage } from "@avv/shared";
+import type { ServerMessage, ClientMessage } from "@avv/shared";
 import { useAVVWebSocket } from "./hooks/useAVVWebSocket";
 import { useAgentLogs } from "./hooks/useAgentLogs";
-import { useComponentSync } from "./hooks/useComponentSync";
+import { useProjectSync } from "./hooks/useProjectSync";
 import { TopBar, type Viewport } from "./components/layout/TopBar";
 import { AgenticChat } from "./components/AgenticChat";
-import { ComponentList } from "./components/ComponentList";
-import { ComponentPreview } from "./components/ComponentPreview";
-import { exportComponentAsHtml, copyComponentHtml } from "./utils/export";
+import { DesignSystemPicker } from "./components/DesignSystemPicker";
+import { LayoutPicker } from "./components/LayoutPicker";
+import { FullPagePreview } from "./components/FullPagePreview";
+import { ScreenTabs } from "./components/ScreenTabs";
+import { DesignSystemPanel } from "./components/DesignSystemPanel";
 
 const MAX_QUEUED_MESSAGES = 200;
 
 export function App() {
   const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const messageQueueRef = useRef<ServerMessage[]>([]);
   const [messageSeq, setMessageSeq] = useState(0);
 
-  const { session, selectedComponentId, setSelectedComponentId, handleMessage: handleComponentMessage } = useComponentSync();
+  const {
+    project,
+    phase,
+    designSystemOptions,
+    layoutOptions,
+    activeScreenId,
+    setActiveScreenId,
+    handleMessage: handleProjectMessage,
+  } = useProjectSync();
   const { handleMessage: handleLogMessage } = useAgentLogs();
 
   const onMessage = useCallback(
     (msg: ServerMessage) => {
-      handleComponentMessage(msg);
+      handleProjectMessage(msg);
       handleLogMessage(msg);
 
-      if (msg.type === "generation:created" || msg.type === "figma:pushing") {
+      if (
+        msg.type === "generation:created" ||
+        msg.type === "figma:pushing" ||
+        msg.type === "designsystem:options" ||
+        msg.type === "layout:options"
+      ) {
+        setIsGenerating(false);
+      }
+      if (msg.type === "designsystem:selected") {
         setIsGenerating(true);
       }
-      if (msg.type === "generation:done" || msg.type === "error" || msg.type === "figma:pushed" || msg.type === "figma:error") {
+      if (msg.type === "generation:done" || msg.type === "error") {
         setIsGenerating(false);
       }
 
@@ -42,7 +59,7 @@ export function App() {
       }
       setMessageSeq((s) => s + 1);
     },
-    [handleComponentMessage, handleLogMessage]
+    [handleProjectMessage, handleLogMessage]
   );
 
   const drainMessages = useCallback((): ServerMessage[] => {
@@ -51,43 +68,57 @@ export function App() {
 
   const { send: rawSend, isConnected, sessionId } = useAVVWebSocket({ onMessage });
 
-  const send = useCallback((msg: import("@avv/shared").ClientMessage) => {
+  const send = useCallback((msg: ClientMessage) => {
     if (msg.type === "generate" || msg.type === "chat") {
       setIsGenerating(true);
     }
     rawSend(msg);
   }, [rawSend]);
 
-  const selectedComponent = session?.components.find((c) => c.id === selectedComponentId) ?? null;
+  const activeScreen = project?.screens.find((s) => s.id === activeScreenId) ?? null;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2000);
   }, []);
 
-  const handleExportHtml = useCallback(() => {
-    if (!selectedComponent) return;
-    const variant = selectedComponent.variants.find((v) => v.id === activeVariantId)
-      ?? selectedComponent.variants[selectedComponent.variants.length - 1];
-    if (variant) {
-      exportComponentAsHtml(selectedComponent.name, variant);
-      showToast("HTML downloaded");
+  const renderMainContent = () => {
+    if (phase === "design-system-picking" && designSystemOptions.length > 0) {
+      return <DesignSystemPicker options={designSystemOptions} onSend={send} />;
     }
-  }, [selectedComponent, activeVariantId, showToast]);
 
-  const handleCopyHtml = useCallback(async () => {
-    if (!selectedComponent) return;
-    const variant = selectedComponent.variants.find((v) => v.id === activeVariantId)
-      ?? selectedComponent.variants[selectedComponent.variants.length - 1];
-    if (variant) {
-      const ok = await copyComponentHtml(variant);
-      showToast(ok ? "HTML copied" : "Copy failed");
+    if (phase === "layout-picking" && layoutOptions.length > 0 && activeScreenId) {
+      return (
+        <LayoutPicker
+          options={layoutOptions}
+          screenId={activeScreenId}
+          designSystem={project?.designSystem ?? null}
+          onSend={send}
+        />
+      );
     }
-  }, [selectedComponent, activeVariantId, showToast]);
 
-  const handleRetry = useCallback((genSessionId: string, componentId: string) => {
-    send({ type: "retry", sessionId: genSessionId, componentId });
-  }, [send]);
+    if (phase === "previewing" && activeScreen) {
+      return (
+        <FullPagePreview
+          screen={activeScreen}
+          designSystem={project?.designSystem ?? null}
+          viewport={viewport}
+        />
+      );
+    }
+
+    return (
+      <div className="flex-1 flex items-center justify-center bg-stone-50">
+        <div className="text-center space-y-3">
+          <span className="material-symbols-outlined text-4xl text-stone-200">auto_awesome</span>
+          <p className="text-sm font-[Noto_Serif] italic text-stone-400">
+            Describe the UI you want to build
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-50">
@@ -107,24 +138,21 @@ export function App() {
           onSend={send}
         />
 
-        <ComponentList
-          session={session}
-          selectedId={selectedComponentId}
-          onSelect={(id) => {
-            setSelectedComponentId(id);
-            setActiveVariantId(null);
-          }}
-          onRetry={handleRetry}
-        />
+        {project && (project.screens.length > 0 || project.designSystem) && (
+          <ScreenTabs
+            screens={project.screens}
+            activeScreenId={activeScreenId}
+            designSystem={project.designSystem}
+            onSelectScreen={setActiveScreenId}
+            onSend={send}
+          />
+        )}
 
-        <ComponentPreview
-          component={selectedComponent}
-          viewport={viewport}
-          activeVariantId={activeVariantId}
-          onVariantSelect={setActiveVariantId}
-          onExportHtml={handleExportHtml}
-          onCopyHtml={handleCopyHtml}
-        />
+        {renderMainContent()}
+
+        {phase === "previewing" && project?.designSystem && (
+          <DesignSystemPanel designSystem={project.designSystem} onSend={send} />
+        )}
       </div>
 
       {toast && (

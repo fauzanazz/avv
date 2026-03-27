@@ -1,6 +1,7 @@
 import { query, createSdkMcpServer, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import type { ComponentVariant } from "@avv/shared";
 import { connectionStore } from "../store";
+import { projectStore } from "../store/project-store";
 import { extractComponentResult } from "./component-collector";
 import { loadPrompt } from "./prompt-loader";
 import { submitComponentTool } from "./tools/submit-component";
@@ -45,10 +46,15 @@ export async function iterateComponent({
     message: `Iterating on "${componentName}": ${instruction}`,
   });
 
+  const project = projectStore.getBySession(wsSessionId);
+  const designSystemSection = project?.designSystem
+    ? `\n## Design System (CSS Custom Properties)\n\nUse these CSS custom properties. Do NOT hardcode colors, fonts, or spacing.\n\n\`\`\`css\n${project.designSystem.css}\n\`\`\`\n`
+    : "";
+
   const iteratorAgent: AgentDefinition = {
     description: `Iterates on the "${componentName}" component based on user feedback.`,
     prompt: `${builderPrompt}
-
+${designSystemSection}
 ## Your Task
 
 You are refining an existing UI component called "${componentName}".
@@ -71,7 +77,8 @@ ${currentCss}
 - Modify the existing HTML/CSS to match the user's instruction
 - Keep everything else the same unless the instruction implies broader changes
 - Call the submit_component tool with the updated result
-- Maintain the same quality and structure`,
+- Maintain the same quality and structure
+- Use design system CSS custom properties (var(--color-primary), etc.) — do NOT hardcode values`,
     tools: ["submit_component"],
     model: "sonnet",
   };
@@ -85,6 +92,8 @@ ${currentCss}
         allowedTools: ["Agent", "mcp__avv-tools__submit_component"],
         agents: { iterator: iteratorAgent },
         maxTurns: 5,
+        thinking: { type: "enabled", budgetTokens: 10000 },
+        effort: "high",
         mcpServers: {
           "avv-tools": createSdkMcpServer({
             name: "avv-tools",
