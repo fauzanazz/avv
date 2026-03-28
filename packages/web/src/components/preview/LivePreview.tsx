@@ -13,8 +13,8 @@ const STEP_LABELS: Record<string, string> = {
   boot: "Booting sandbox",
   upload: "Uploading template",
   install: "Installing dependencies",
-  vite: "Starting dev server",
   connect: "Connecting preview",
+  vite: "Starting dev server",
 };
 
 interface LivePreviewProps {

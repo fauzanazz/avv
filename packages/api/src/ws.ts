@@ -834,8 +834,9 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
       await startViteInSandbox(conversationId, progress);
       hasPreview = true;
       console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
-    } catch {
-      // Sandbox unavailable, fall through to local
+    } catch (err) {
+      console.error(`[Restore] Sandbox creation failed for ${conversationId}:`, err);
+      // Fall through to local dev server
     }
   } else if (hasSandbox(conversationId)) {
     hasPreview = true;

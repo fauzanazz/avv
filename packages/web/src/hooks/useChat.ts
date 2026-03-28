@@ -195,24 +195,21 @@ export function useChat() {
         break;
 
       case "sandbox:progress": {
-        // Clear progress once the final step completes or any step errors
-        if ((msg.step === "connect" && msg.status === "done") || msg.status === "error") {
+        const ALL_STEPS: SandboxStep[] = ["boot", "upload", "install", "connect", "vite"];
+        // Clear progress once the final step (vite) completes or any step errors
+        if ((msg.step === "vite" && msg.status === "done") || msg.status === "error") {
           setSandboxProgress((prev) => {
-            const ALL_STEPS: SandboxStep[] = ["boot", "upload", "install", "vite", "connect"];
             const steps: SandboxProgressStep[] = prev ??
               ALL_STEPS.map((s) => ({ step: s, status: "pending" as SandboxStepStatus }));
             const updated = steps.map((s) =>
               s.step === msg.step ? { ...s, status: msg.status, error: msg.error } : s,
             );
-            // On error, show the error state briefly then it'll naturally clear
-            // On connect done, clear immediately
             if (msg.status === "done") return null;
             return updated;
           });
           break;
         }
         setSandboxProgress((prev) => {
-          const ALL_STEPS: SandboxStep[] = ["boot", "upload", "install", "vite", "connect"];
           const steps: SandboxProgressStep[] = prev ??
             ALL_STEPS.map((s) => ({ step: s, status: "pending" as SandboxStepStatus }));
           return steps.map((s) =>
