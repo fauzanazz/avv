@@ -5,7 +5,7 @@ export const healthRoute = new Hono();
 
 healthRoute.get("/health", (c) => {
   const response: ApiResponse<{ status: string }> = {
-    success: true,
+    ok: true,
     data: { status: "ok" },
   };
   return c.json(response);

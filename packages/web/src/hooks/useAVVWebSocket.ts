@@ -9,7 +9,7 @@ interface UseAVVWebSocketOptions {
 interface UseAVVWebSocketReturn {
   send: (msg: ClientMessage) => void;
   isConnected: boolean;
-  sessionId: string | null;
+  conversationId: string | null;
 }
 
 export function useAVVWebSocket({
@@ -18,13 +18,11 @@ export function useAVVWebSocket({
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
-  // Subscribe to WS messages — the only useEffect, purely for
-  // listener registration/cleanup (no resource creation).
   useEffect(() => {
     return wsManager.onMessage((msg) => onMessageRef.current(msg));
   }, []);
 
-  const { isConnected, sessionId } = useSyncExternalStore(
+  const { isConnected, conversationId } = useSyncExternalStore(
     wsManager.subscribeState,
     wsManager.getSnapshot,
   );
@@ -33,5 +31,5 @@ export function useAVVWebSocket({
     wsManager.send(msg);
   }, []);
 
-  return { send, isConnected, sessionId };
+  return { send, isConnected, conversationId };
 }

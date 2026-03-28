@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Praha Cafe — Where Prague Meets Your Morning</title>
+  <meta name="description" content="Artisanal Czech coffee and pastries crafted with old-world care, served in a space that feels like home." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&family=Inter:wght@400;500;600&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            espresso: '#2C1A0E',
+            'dark-roast': '#3E2A1C',
+            copper: '#B87333',
+            brass: '#D4A853',
+            cream: '#F5F0E8',
+            parchment: '#EDE6D8',
+            latte: '#C8B49A',
+            steam: '#FAFAF7',
+            'bohemian-red': '#8B2E2E',
+            charcoal: '#1A1A1A',
+          },
+          fontFamily: {
+            playfair: ['"Playfair Display"', 'serif'],
+            inter: ['Inter', 'sans-serif'],
+            cormorant: ['"Cormorant Garamond"', 'serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    /* ── Base ─────────────────────────────── */
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #1A1A1A;
+      background: #F5F0E8;
+      overflow-x: hidden;
+    }
+
+    /* ── Skip link ────────────────────────── */
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      z-index: 999;
+      padding: 0.75rem 1.5rem;
+      background: #B87333;
+      color: #fff;
+      border-radius: 0 0 8px 0;
+      font-weight: 600;
+    }
+    .skip-link:focus {
+      left: 0;
+      top: 0;
+    }
+
+    /* ── Scroll reveal ────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
+                  transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-40px);
+      transition: opacity 0.8s cubic-bezier(0.25, 0.1, 0.25, 1),
+                  transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .reveal-right {
+      opacity: 0;
+      transform: translateX(40px);
+      transition: opacity 0.8s cubic-bezier(0.25, 0.1, 0.25, 1),
+                  transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .is-visible {
+      opacity: 1 !important;
+      transform: translate(0, 0) !important;
+    }
+
+    /* ── Stagger children ─────────────────── */
+    .stagger-children .reveal:nth-child(1) { transition-delay: 0ms; }
+    .stagger-children .reveal:nth-child(2) { transition-delay: 100ms; }
+    .stagger-children .reveal:nth-child(3) { transition-delay: 200ms; }
+    .stagger-children .reveal:nth-child(4) { transition-delay: 300ms; }
+    .stagger-children .reveal:nth-child(5) { transition-delay: 400ms; }
+    .stagger-children .reveal:nth-child(6) { transition-delay: 500ms; }
+
+    /* ── Hero entrance ────────────────────── */
+    .hero-enter {
+      opacity: 0;
+      transform: translateY(24px);
+      animation: heroFadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+    .hero-enter:nth-child(1) { animation-delay: 0.3s; }
+    .hero-enter:nth-child(2) { animation-delay: 0.5s; }
+    .hero-enter:nth-child(3) { animation-delay: 0.7s; }
+    .hero-enter:nth-child(4) { animation-delay: 0.9s; }
+
+    @keyframes heroFadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Scroll indicator bounce ──────────── */
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(8px); }
+    }
+    .scroll-indicator {
+      animation: bounce 2s ease-in-out infinite;
+    }
+
+    /* ── Steam animation ──────────────────── */
+    @keyframes steam {
+      0% {
+        opacity: 0;
+        transform: translateY(0) scaleX(1);
+      }
+      15% {
+        opacity: 0.6;
+      }
+      50% {
+        opacity: 0.3;
+        transform: translateY(-40px) scaleX(1.2) translateX(8px);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-80px) scaleX(0.8) translateX(-4px);
+      }
+    }
+    .steam-wisp {
+      position: absolute;
+      width: 8px;
+      height: 20px;
+      background: rgba(255,255,255,0.35);
+      border-radius: 50%;
+      filter: blur(6px);
+      animation: steam 3s ease-out infinite;
+    }
+    .steam-wisp:nth-child(2) {
+      animation-delay: 1s;
+      left: 12px;
+      animation-duration: 3.5s;
+    }
+    .steam-wisp:nth-child(3) {
+      animation-delay: 2s;
+      left: 6px;
+      animation-duration: 2.8s;
+    }
+
+    /* ── Nav underline ────────────────────── */
+    .nav-link {
+      position: relative;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: #B87333;
+      transition: width 0.3s ease, left 0.3s ease;
+    }
+    .nav-link:hover::after,
+    .nav-link:focus-visible::after {
+      width: 100%;
+      left: 0;
+    }
+
+    /* ── Gallery hover zoom ───────────────── */
+    .gallery-img-wrap {
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    .gallery-img-wrap img {
+      transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.5s ease;
+    }
+    .gallery-img-wrap:hover img {
+      transform: scale(1.05);
+      filter: brightness(1.08);
+    }
+
+    /* ── Section divider ──────────────────── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      max-width: 200px;
+      margin: 0 auto 2rem;
+    }
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #C8B49A;
+    }
+
+    /* ── Subtle grain overlay ─────────────── */
+    .grain-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.03;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 128px 128px;
+    }
+
+    /* ── Mobile drawer ────────────────────── */
+    .mobile-drawer {
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .mobile-drawer.open {
+      transform: translateX(0);
+    }
+
+    /* ── Focus visible ────────────────────── */
+    *:focus-visible {
+      outline: 2px solid #B87333;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ── Parallax hero ────────────────────── */
+    .hero-bg {
+      background-attachment: fixed;
+      background-size: cover;
+      background-position: center;
+    }
+    @supports (-webkit-touch-callout: none) {
+      /* iOS fallback — no fixed attachment */
+      .hero-bg { background-attachment: scroll; }
+    }
+  </style>
+</head>
+<body class="font-inter text-charcoal">
+  <!-- Skip link -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ═══════════════════════════════════════
+       NAVIGATION
+  ═══════════════════════════════════════ -->
+  <nav id="navbar" class="fixed top-0 left-0 w-full z-50 transition-all duration-500" aria-label="Main navigation">
+    <div class="max-w-[1200px] mx-auto px-5 lg:px-8 flex items-center justify-between h-16 lg:h-20">
+      <!-- Logo -->
+      <a href="#" class="flex flex-col items-center leading-none" aria-label="Praha Cafe home">
+        <span class="font-playfair font-black text-xl lg:text-2xl tracking-wide text-white">PRAHA</span>
+        <span class="text-[0.6rem] lg:text-[0.65rem] tracking-[0.3em] text-brass font-medium -mt-0.5">CAFE</span>
+      </a>
+
+      <!-- Desktop links -->
+      <div class="hidden lg:flex items-center gap-8">
+        <a href="#story" class="nav-link text-sm text-white/80 hover:text-copper transition-colors duration-300 font-medium">Our Story</a>
+        <a href="#menu" class="nav-link text-sm text-white/80 hover:text-copper transition-colors duration-300 font-medium">Menu</a>
+        <a href="#gallery" class="nav-link text-sm text-white/80 hover:text-copper transition-colors duration-300 font-medium">Gallery</a>
+        <a href="#reviews" class="nav-link text-sm text-white/80 hover:text-copper transition-colors duration-300 font-medium">Reviews</a>
+        <a href="#visit" class="nav-link text-sm text-white/80 hover:text-copper transition-colors duration-300 font-medium">Visit Us</a>
+      </div>
+
+      <!-- CTA + Hamburger -->
+      <div class="flex items-center gap-4">
+        <a href="#visit" class="hidden lg:inline-flex items-center px-5 py-2.5 bg-copper text-white text-sm font-semibold rounded-lg hover:bg-brass hover:scale-[1.02] transition-all duration-200">
+          Reserve a Table
+        </a>
+        <!-- Hamburger -->
+        <button id="menu-toggle" class="lg:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5" aria-label="Open menu" aria-expanded="false">
+          <span class="block w-6 h-0.5 bg-white transition-all duration-300 origin-center" id="bar1"></span>
+          <span class="block w-6 h-0.5 bg-white transition-all duration-300" id="bar2"></span>
+          <span class="block w-6 h-0.5 bg-white transition-all duration-300 origin-center" id="bar3"></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile drawer -->
+  <div id="mobile-drawer" class="mobile-drawer fixed inset-y-0 right-0 w-72 bg-espresso/95 backdrop-blur-lg z-50 flex flex-col pt-20 px-8 gap-6 lg:hidden" aria-hidden="true">
+    <a href="#story" class="text-lg text-white/80 hover:text-copper transition-colors font-medium mobile-link">Our Story</a>
+    <a href="#menu" class="text-lg text-white/80 hover:text-copper transition-colors font-medium mobile-link">Menu</a>
+    <a href="#gallery" class="text-lg text-white/80 hover:text-copper transition-colors font-medium mobile-link">Gallery</a>
+    <a href="#reviews" class="text-lg text-white/80 hover:text-copper transition-colors font-medium mobile-link">Reviews</a>
+    <a href="#visit" class="text-lg text-white/80 hover:text-copper transition-colors font-medium mobile-link">Visit Us</a>
+    <a href="#visit" class="mt-4 inline-flex items-center justify-center px-5 py-3 bg-copper text-white text-sm font-semibold rounded-lg hover:bg-brass transition-all duration-200">
+      Reserve a Table
+    </a>
+  </div>
+  <div id="drawer-overlay" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden"></div>
+
+  <!-- ═══════════════════════════════════════
+       HERO
+  ═══════════════════════════════════════ -->
+  <main id="main-content">
+    <section class="relative min-h-screen flex items-center justify-center grain-overlay">
+      <!-- Background -->
+      <div class="absolute inset-0 hero-bg" style="background-image: url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1920&q=80');" aria-hidden="true">
+        <div class="absolute inset-0 bg-gradient-to-b from-espresso/50 to-espresso/70"></div>
+      </div>
+
+      <!-- Steam wisps (decorative) -->
+      <div class="absolute bottom-[30%] left-[52%] hidden lg:block" aria-hidden="true">
+        <div class="steam-wisp"></div>
+        <div class="steam-wisp"></div>
+        <div class="steam-wisp"></div>
+      </div>
+
+      <!-- Content -->
+      <div class="relative z-10 text-center px-5 max-w-3xl mx-auto">
+        <span class="hero-enter block font-cormorant italic text-brass text-lg lg:text-xl mb-4">Est. in the heart of tradition</span>
+        <h1 class="hero-enter font-playfair font-black text-white leading-[1.1]" style="font-size: clamp(2.75rem, 6vw, 5.5rem);">
+          Where Prague Meets Your Morning
+        </h1>
+        <p class="hero-enter text-white/75 text-base lg:text-lg max-w-xl mx-auto mt-6 leading-relaxed">
+          Artisanal Czech coffee and pastries crafted with old-world care, served in a space that feels like home.
+        </p>
+        <div class="hero-enter flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+          <a href="#menu" class="px-8 py-3.5 bg-copper text-white font-semibold rounded-lg hover:bg-brass hover:scale-[1.02] transition-all duration-200 text-sm">
+            Explore Our Menu
+          </a>
+          <a href="#story" class="px-8 py-3.5 border border-white/30 text-white font-semibold rounded-lg hover:border-brass hover:text-brass transition-all duration-200 text-sm">
+            Our Story &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Scroll indicator -->
+      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-indicator opacity-0" style="animation: heroFadeUp 0.6s 1.5s forwards, bounce 2s 2.1s ease-in-out infinite;" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         ABOUT / OUR STORY
+    ═══════════════════════════════════════ -->
+    <section id="story" class="bg-cream relative grain-overlay" style="padding: clamp(80px, 10vw, 140px) clamp(20px, 5vw, 120px);">
+      <div class="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <!-- Image -->
+        <div class="reveal-left rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)]">
+          <img
+            src="https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=800&q=80"
+            alt="Cozy interior of Praha Cafe with warm lighting and exposed brick walls"
+            class="w-full h-[400px] lg:h-[520px] object-cover"
+            loading="lazy"
+          />
+        </div>
+
+        <!-- Text -->
+        <div class="reveal-right">
+          <span class="text-copper text-xs font-semibold tracking-[0.2em] uppercase">Our Story</span>
+          <h2 class="font-playfair font-bold text-espresso mt-3 leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
+            A Taste of Prague,<br />Brewed with Love
+          </h2>
+          <div class="w-12 h-0.5 bg-copper mt-5 mb-6"></div>
+          <p class="text-charcoal/80 leading-relaxed mb-4">
+            Praha Cafe was born from a simple longing — the memory of slow mornings in Prague's historic kavárnas, where coffee was more than a drink; it was a conversation, a ritual, a moment of stillness in a beautiful city.
+          </p>
+          <p class="text-charcoal/80 leading-relaxed mb-4">
+            Founded in 2021 by Czech expat Tomáš Dvořák, our cafe brings the warmth of Bohemian coffee culture to life. Every cup is roasted with beans sourced from small farms, prepared with methods passed down through generations of Prague's finest coffee houses.
+          </p>
+          <p class="text-charcoal/80 leading-relaxed">
+            Step inside and you'll find exposed brick walls, the scent of freshly baked trdelník, brass fixtures that catch the morning light, and a quietness that invites you to stay a little longer.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         MENU HIGHLIGHTS
+    ═══════════════════════════════════════ -->
+    <section id="menu" class="bg-parchment relative grain-overlay" style="padding: clamp(80px, 10vw, 140px) clamp(20px, 5vw, 120px);">
+      <div class="max-w-[1200px] mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-14 reveal">
+          <span class="text-copper text-xs font-semibold tracking-[0.2em] uppercase">The Menu</span>
+          <h2 class="font-playfair font-bold text-espresso mt-3" style="font-size: clamp(2rem, 4vw, 3rem);">
+            Crafted for the Unhurried
+          </h2>
+          <div class="section-divider mt-5">
+            <span class="text-latte text-sm">&#9830;</span>
+          </div>
+          <p class="text-charcoal/70 max-w-md mx-auto">
+            A curated selection of Czech-inspired drinks and pastries, made fresh daily.
+          </p>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 stagger-children">
+          <!-- Card 1 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=600&q=80" alt="Prague Espresso in a ceramic cup" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Prague Espresso</h3>
+                <span class="text-copper font-semibold text-sm">$4.50</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">Bold, dark, and unapologetic — our signature double shot pulled long in the Czech tradition.</p>
+            </div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1534778101976-62847782c213?w=600&q=80" alt="Bohemian Latte with latte art" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Bohemian Latte</h3>
+                <span class="text-copper font-semibold text-sm">$6.00</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">Silky oat milk meets our house espresso, kissed with a swirl of cinnamon and honey.</p>
+            </div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&q=80" alt="Trdelník chimney pastry with sugar coating" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Trdelník Roll</h3>
+                <span class="text-copper font-semibold text-sm">$5.50</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">A warm, sugar-crusted chimney pastry — crisp on the outside, pillowy within.</p>
+            </div>
+          </div>
+
+          <!-- Card 4 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&q=80" alt="Medovník layered honey cake" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Medovník</h3>
+                <span class="text-copper font-semibold text-sm">$7.00</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">Layers of spiced honey cake and cream, a Czech grandmother's pride.</p>
+            </div>
+          </div>
+
+          <!-- Card 5 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=600&q=80" alt="Rich Czech hot chocolate in a mug" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Czech Hot Chocolate</h3>
+                <span class="text-copper font-semibold text-sm">$5.50</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">Thick, dark, and velvety — made with real Bohemian chocolate and a touch of chili.</p>
+            </div>
+          </div>
+
+          <!-- Card 6 -->
+          <div class="reveal bg-steam rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] hover:shadow-[0_8px_32px_rgba(44,26,14,0.15)] hover:-translate-y-1 transition-all duration-300">
+            <img src="https://images.unsplash.com/photo-1486427944544-d2c246c4df14?w=600&q=80" alt="Švestková Buchta plum cake" class="w-full h-48 object-cover" loading="lazy" />
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-playfair font-bold text-espresso text-lg">Švestková Buchta</h3>
+                <span class="text-copper font-semibold text-sm">$6.00</span>
+              </div>
+              <p class="text-charcoal/65 text-sm leading-relaxed">Traditional plum cake with buttery crumble, best enjoyed with an afternoon coffee.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="text-center mt-12 reveal">
+          <a href="#" class="inline-flex items-center gap-2 text-copper font-semibold hover:text-brass transition-colors duration-200">
+            View Full Menu
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         GALLERY / ATMOSPHERE
+    ═══════════════════════════════════════ -->
+    <section id="gallery" class="bg-espresso relative grain-overlay" style="padding: clamp(80px, 10vw, 140px) clamp(20px, 5vw, 120px);">
+      <div class="max-w-[1200px] mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-14 reveal">
+          <h2 class="font-playfair font-bold text-white" style="font-size: clamp(2rem, 4vw, 3rem);">
+            Step Inside
+          </h2>
+          <div class="section-divider mt-5">
+            <span class="text-latte/50 text-sm">&#9830;</span>
+          </div>
+          <p class="text-white/60 max-w-md mx-auto">
+            A space designed for lingering — where every corner tells a story.
+          </p>
+        </div>
+
+        <!-- Gallery grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4 stagger-children">
+          <div class="gallery-img-wrap reveal col-span-2 lg:col-span-1 lg:row-span-2">
+            <img src="https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800&q=80" alt="Warm cafe interior with wooden tables and hanging lights" class="w-full h-full min-h-[280px] lg:min-h-[480px] object-cover" loading="lazy" />
+          </div>
+          <div class="gallery-img-wrap reveal">
+            <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80" alt="Barista crafting latte art" class="w-full h-56 lg:h-56 object-cover" loading="lazy" />
+          </div>
+          <div class="gallery-img-wrap reveal">
+            <img src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&q=80" alt="Exposed brick wall with vintage coffee decor" class="w-full h-56 lg:h-56 object-cover" loading="lazy" />
+          </div>
+          <div class="gallery-img-wrap reveal">
+            <img src="https://images.unsplash.com/photo-1559305616-3f99cd43e353?w=600&q=80" alt="Cozy seating nook with cushions and bookshelves" class="w-full h-56 lg:h-56 object-cover" loading="lazy" />
+          </div>
+          <div class="gallery-img-wrap reveal">
+            <img src="https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=600&q=80" alt="Brass fixtures and vintage coffee equipment" class="w-full h-56 lg:h-56 object-cover" loading="lazy" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         TESTIMONIALS
+    ═══════════════════════════════════════ -->
+    <section id="reviews" class="bg-cream relative grain-overlay" style="padding: clamp(80px, 10vw, 140px) clamp(20px, 5vw, 120px);">
+      <div class="max-w-[1200px] mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-14 reveal">
+          <h2 class="font-playfair font-bold text-espresso" style="font-size: clamp(2rem, 4vw, 3rem);">
+            What Our Guests Say
+          </h2>
+          <div class="section-divider mt-5">
+            <span class="text-latte text-sm">&#9830;</span>
+          </div>
+        </div>
+
+        <!-- Cards -->
+        <div class="grid md:grid-cols-3 gap-6 lg:gap-8 stagger-children">
+          <!-- Testimonial 1 -->
+          <div class="reveal bg-steam rounded-xl p-8 shadow-[0_4px_20px_rgba(44,26,14,0.08)]">
+            <svg class="w-8 h-8 text-copper/30 mb-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
+            <p class="font-cormorant italic text-espresso text-lg leading-relaxed mb-6">
+              "Walking into Praha Cafe feels like stepping into a quiet corner of Malá Strana. The trdelník alone is worth the trip."
+            </p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-latte/40 flex items-center justify-center">
+                <span class="text-espresso font-semibold text-sm">EK</span>
+              </div>
+              <div>
+                <p class="font-semibold text-espresso text-sm">Elena Kovács</p>
+                <p class="text-charcoal/50 text-xs">Regular since 2022</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Testimonial 2 -->
+          <div class="reveal bg-steam rounded-xl p-8 shadow-[0_4px_20px_rgba(44,26,14,0.08)]">
+            <svg class="w-8 h-8 text-copper/30 mb-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
+            <p class="font-cormorant italic text-espresso text-lg leading-relaxed mb-6">
+              "I've never had a latte this good outside of Europe. Tomáš and his team truly understand coffee as craft."
+            </p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-latte/40 flex items-center justify-center">
+                <span class="text-espresso font-semibold text-sm">JW</span>
+              </div>
+              <div>
+                <p class="font-semibold text-espresso text-sm">James Whitfield</p>
+                <p class="text-charcoal/50 text-xs">First-time visitor</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Testimonial 3 -->
+          <div class="reveal bg-steam rounded-xl p-8 shadow-[0_4px_20px_rgba(44,26,14,0.08)]">
+            <svg class="w-8 h-8 text-copper/30 mb-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
+            <p class="font-cormorant italic text-espresso text-lg leading-relaxed mb-6">
+              "This is my office, my reading room, and my happy place. The atmosphere is unmatched."
+            </p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-latte/40 flex items-center justify-center">
+                <span class="text-espresso font-semibold text-sm">SR</span>
+              </div>
+              <div>
+                <p class="font-semibold text-espresso text-sm">Sofia Rinaldi</p>
+                <p class="text-charcoal/50 text-xs">Regular since 2023</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         LOCATION & HOURS
+    ═══════════════════════════════════════ -->
+    <section id="visit" class="bg-parchment relative grain-overlay" style="padding: clamp(80px, 10vw, 140px) clamp(20px, 5vw, 120px);">
+      <div class="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <!-- Map placeholder -->
+        <div class="reveal-left rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(44,26,14,0.08)] bg-latte/20 aspect-[4/3] flex items-center justify-center">
+          <iframe
+            title="Praha Cafe location map"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3025.674!2d-73.9712!3d40.6892!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDQxJzIxLjEiTiA3M8KwNTgnMTYuMyJX!5e0!3m2!1sen!2sus!4v1"
+            class="w-full h-full min-h-[320px] rounded-xl border-0"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+
+        <!-- Info -->
+        <div class="reveal-right">
+          <h2 class="font-playfair font-bold text-espresso" style="font-size: clamp(2rem, 4vw, 3rem);">
+            Visit Us
+          </h2>
+          <div class="w-12 h-0.5 bg-copper mt-5 mb-8"></div>
+
+          <!-- Address -->
+          <div class="flex gap-4 mb-6">
+            <svg class="w-5 h-5 text-copper mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div>
+              <p class="font-semibold text-espresso">Address</p>
+              <p class="text-charcoal/70 text-sm leading-relaxed">247 Elm Street, Suite 1A<br/>Brooklyn, NY 11201</p>
+            </div>
+          </div>
+
+          <!-- Hours -->
+          <div class="flex gap-4 mb-6">
+            <svg class="w-5 h-5 text-copper mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div>
+              <p class="font-semibold text-espresso">Hours</p>
+              <p class="text-charcoal/70 text-sm">Monday – Friday: 7:00 AM – 8:00 PM</p>
+              <p class="text-charcoal/70 text-sm">Saturday – Sunday: 8:00 AM – 9:00 PM</p>
+            </div>
+          </div>
+
+          <!-- Phone -->
+          <div class="flex gap-4 mb-8">
+            <svg class="w-5 h-5 text-copper mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <div>
+              <p class="font-semibold text-espresso">Phone</p>
+              <p class="text-charcoal/70 text-sm">(718) 555-0192</p>
+            </div>
+          </div>
+
+          <p class="font-cormorant italic text-copper text-lg">
+            "Pull up a chair. We saved you a seat by the window."
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════ -->
+  <footer class="bg-dark-roast text-white/70" style="padding: clamp(60px, 8vw, 100px) clamp(20px, 5vw, 120px) 30px;">
+    <div class="max-w-[1200px] mx-auto">
+      <div class="grid md:grid-cols-3 gap-10 lg:gap-16">
+        <!-- Logo & tagline -->
+        <div>
+          <a href="#" class="inline-flex flex-col items-start leading-none" aria-label="Praha Cafe home">
+            <span class="font-playfair font-black text-2xl tracking-wide text-white">PRAHA</span>
+            <span class="text-[0.6rem] tracking-[0.3em] text-brass font-medium -mt-0.5">CAFE</span>
+          </a>
+          <p class="font-cormorant italic text-white/50 mt-4 text-lg">
+            Coffee, culture, and a little corner of Prague.
+          </p>
+        </div>
+
+        <!-- Quick links -->
+        <div>
+          <h4 class="font-semibold text-white text-sm mb-4">Quick Links</h4>
+          <div class="flex flex-col gap-2">
+            <a href="#story" class="text-sm text-white/50 hover:text-copper transition-colors">Our Story</a>
+            <a href="#menu" class="text-sm text-white/50 hover:text-copper transition-colors">Menu</a>
+            <a href="#gallery" class="text-sm text-white/50 hover:text-copper transition-colors">Gallery</a>
+            <a href="#reviews" class="text-sm text-white/50 hover:text-copper transition-colors">Reviews</a>
+            <a href="#visit" class="text-sm text-white/50 hover:text-copper transition-colors">Visit Us</a>
+          </div>
+        </div>
+
+        <!-- Newsletter -->
+        <div>
+          <h4 class="font-semibold text-white text-sm mb-4">Stay in the Loop</h4>
+          <p class="text-sm text-white/50 mb-4">Get updates on seasonal specials, events, and new menu items.</p>
+          <form class="flex gap-2" onsubmit="event.preventDefault(); this.querySelector('input').value=''; alert('Thank you for subscribing!');">
+            <input
+              type="email"
+              placeholder="Your email address"
+              required
+              class="flex-1 px-4 py-2.5 bg-white/10 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-copper transition-colors"
+              aria-label="Email address for newsletter"
+            />
+            <button type="submit" class="px-5 py-2.5 bg-copper text-white text-sm font-semibold rounded-lg hover:bg-brass transition-all duration-200 shrink-0">
+              Subscribe
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="h-px bg-white/10 mt-12 mb-6"></div>
+
+      <!-- Bottom bar -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-xs text-white/30">&copy; 2026 Praha Cafe. All rights reserved.</p>
+        <div class="flex items-center gap-5">
+          <!-- Instagram -->
+          <a href="#" class="text-white/40 hover:text-brass hover:scale-110 transition-all duration-200" aria-label="Instagram">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </a>
+          <!-- Facebook -->
+          <a href="#" class="text-white/40 hover:text-brass hover:scale-110 transition-all duration-200" aria-label="Facebook">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385h-3.047v-3.47h3.047v-2.642c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953h-1.514c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385c5.738-.9 10.126-5.864 10.126-11.854z"/></svg>
+          </a>
+          <!-- TripAdvisor -->
+          <a href="#" class="text-white/40 hover:text-brass hover:scale-110 transition-all duration-200" aria-label="TripAdvisor">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.006 4.295c-2.67 0-5.338.784-7.645 2.353H0l1.963 2.135a5.997 5.997 0 0 0 4.04 10.43 5.976 5.976 0 0 0 4.075-1.6L12 19.705l1.922-2.09a5.976 5.976 0 0 0 4.075 1.6 5.997 5.997 0 0 0 4.04-10.43L24 6.648h-4.35a13.573 13.573 0 0 0-7.644-2.353zM6.003 17.213a3.997 3.997 0 1 1 0-7.994 3.997 3.997 0 0 1 0 7.994zm11.994 0a3.997 3.997 0 1 1 0-7.994 3.997 3.997 0 0 1 0 7.994zM6.003 11.219a2.998 2.998 0 1 0 0 5.996 2.998 2.998 0 0 0 0-5.996zm11.994 0a2.998 2.998 0 1 0 0 5.996 2.998 2.998 0 0 0 0-5.996z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════ -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ── Navbar scroll behavior ─────────────
+      const navbar = document.getElementById('navbar');
+      let lastScroll = 0;
+
+      function handleNavScroll() {
+        const scrollY = window.scrollY;
+        if (scrollY > 80) {
+          navbar.style.background = 'rgba(44, 26, 14, 0.95)';
+          navbar.style.backdropFilter = 'blur(10px)';
+          navbar.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
+        } else {
+          navbar.style.background = 'transparent';
+          navbar.style.backdropFilter = 'none';
+          navbar.style.boxShadow = 'none';
+        }
+        lastScroll = scrollY;
+      }
+      window.addEventListener('scroll', handleNavScroll, { passive: true });
+      handleNavScroll();
+
+      // ── Mobile menu ────────────────────────
+      const menuToggle = document.getElementById('menu-toggle');
+      const mobileDrawer = document.getElementById('mobile-drawer');
+      const drawerOverlay = document.getElementById('drawer-overlay');
+      const bar1 = document.getElementById('bar1');
+      const bar2 = document.getElementById('bar2');
+      const bar3 = document.getElementById('bar3');
+      let menuOpen = false;
+
+      function toggleMenu() {
+        menuOpen = !menuOpen;
+        mobileDrawer.classList.toggle('open', menuOpen);
+        mobileDrawer.setAttribute('aria-hidden', !menuOpen);
+        menuToggle.setAttribute('aria-expanded', menuOpen);
+        drawerOverlay.classList.toggle('hidden', !menuOpen);
+        document.body.style.overflow = menuOpen ? 'hidden' : '';
+
+        if (menuOpen) {
+          bar1.style.transform = 'rotate(45deg) translate(4px, 4px)';
+          bar2.style.opacity = '0';
+          bar3.style.transform = 'rotate(-45deg) translate(4px, -4px)';
+        } else {
+          bar1.style.transform = '';
+          bar2.style.opacity = '';
+          bar3.style.transform = '';
+        }
+      }
+
+      menuToggle.addEventListener('click', toggleMenu);
+      drawerOverlay.addEventListener('click', toggleMenu);
+
+      // Close drawer on link click
+      document.querySelectorAll('.mobile-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+          if (menuOpen) toggleMenu();
+        });
+      });
+
+      // ── Smooth scroll offset for sticky nav ──
+      document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+        anchor.addEventListener('click', function (e) {
+          const href = this.getAttribute('href');
+          if (href === '#') return;
+          const target = document.querySelector(href);
+          if (target) {
+            e.preventDefault();
+            const offset = navbar.offsetHeight + 16;
+            const top = target.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: top, behavior: 'smooth' });
+          }
+        });
+      });
+
+      // ── Intersection Observer for scroll reveals ──
+      const revealEls = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+        );
+
+        revealEls.forEach(function (el) {
+          observer.observe(el);
+        });
+      } else {
+        // Fallback: show everything
+        revealEls.forEach(function (el) {
+          el.classList.add('is-visible');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -9,5 +9,11 @@ bun.lock
 # Agent orchestrator state (auto-generated)
 .agent-state/
 
+# SQLite database
+data/
+
 # Git worktrees
 .worktrees/
+
+# Planning files
+.planning/

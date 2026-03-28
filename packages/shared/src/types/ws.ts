@@ -1,71 +1,74 @@
-import type { GenerationSession, ViewerComponent, ComponentStatus } from "./canvas";
-import type { ImageResult } from "./agent";
-import type { DesignSystem, DesignTokens } from "./design-system";
-import type { Project, Screen, LayoutOption } from "./project";
+import type {
+  Conversation,
+  ConversationSummary,
+  Message,
+} from "./conversation";
+import type { FileEntry, FileAction } from "./files";
+import type { PromptBuilderAgent } from "./prompt";
 
-/** Server -> Client WebSocket messages */
+// ── Server -> Client ─────────────────────────────────────────
+
 export type ServerMessage =
-  // Project lifecycle
-  | { type: "project:created"; project: Project }
-  // Design system
-  | { type: "designsystem:options"; options: DesignSystem[] }
-  | { type: "designsystem:selected"; designSystem: DesignSystem }
-  | { type: "designsystem:updated"; designSystem: DesignSystem }
-  // Screens
-  | { type: "screen:created"; screen: Screen }
-  | { type: "screen:updated"; screenId: string; updates: Partial<Screen> }
-  // Layouts
-  | { type: "layout:options"; screenId: string; options: LayoutOption[] }
-  | { type: "layout:selected"; screenId: string; layoutId: string }
-  // Generation lifecycle
-  | { type: "generation:created"; session: GenerationSession }
-  | { type: "generation:status"; sessionId: string; status: ComponentStatus }
-  // Component lifecycle
-  | { type: "component:updated"; sessionId: string; componentId: string; updates: Partial<ViewerComponent> }
-  | { type: "component:status"; sessionId: string; componentId: string; status: ComponentStatus }
-  // Agent activity
-  | { type: "agent:log"; agentId: string; message: string }
-  | { type: "agent:thinking"; agentId: string; thought: string }
-  | { type: "agent:option"; agentId: string; optionId: string; title: string; description: string; previewHtml?: string }
-  // Session
-  | { type: "session:started"; sessionId: string }
-  | { type: "generation:done"; sessionId: string }
-  // Images
-  | { type: "image:ready"; image: ImageResult }
-  | { type: "image:generating"; requestId: string; componentId: string }
-  // Chat / UltraThink
-  | { type: "ultrathink:question"; questionId: string; question: string; options?: string[] }
-  | { type: "ultrathink:spec"; spec: string }
-  | { type: "ultrathink:ready"; enrichedPrompt: string }
-  // Figma
-  | { type: "figma:pushing"; message: string }
-  | { type: "figma:pushed"; figmaUrl: string }
-  | { type: "figma:error"; message: string }
-  // Errors
+  | { type: "chat:text"; conversationId: string; content: string; streaming: boolean }
+  | { type: "chat:thinking"; conversationId: string; content: string }
+  | {
+      type: "chat:tool_call";
+      conversationId: string;
+      callId: string;
+      tool: string;
+      args: Record<string, unknown>;
+      result?: string;
+      status: "pending" | "running" | "completed" | "error";
+    }
+  | { type: "chat:done"; conversationId: string; messageId: string }
+  | { type: "chat:error"; conversationId: string; error: string }
+  | {
+      type: "agent:activity";
+      agent: PromptBuilderAgent | "orchestrator" | "router";
+      status: string;
+      detail?: string;
+    }
+  | { type: "prompt:building"; agent: PromptBuilderAgent; output: string }
+  | {
+      type: "prompt:complete";
+      promptId: string;
+      content: string;
+      agentsOutput: Record<string, string>;
+    }
+  | {
+      type: "file:changed";
+      path: string;
+      content: string;
+      action: FileAction;
+    }
+  | { type: "file:tree"; files: FileEntry[] }
+  | { type: "preview:ready"; url: string }
+  | {
+      type: "github:status";
+      status: "connecting" | "pushing" | "done" | "error";
+      repo?: string;
+      error?: string;
+    }
+  | {
+      type: "conversation:loaded";
+      conversation: Conversation;
+      messages: Message[];
+    }
+  | { type: "conversations:list"; conversations: ConversationSummary[] }
   | { type: "error"; message: string };
 
-/** Client -> Server WebSocket messages */
+// ── Client -> Server ─────────────────────────────────────────
+
 export type ClientMessage =
-  | { type: "generate"; prompt: string }
-  | { type: "chat"; message: string }
-  | { type: "select:designsystem"; designSystemId: string }
-  | { type: "update:designsystem"; tokens: Partial<DesignTokens> }
-  | { type: "select:layout"; screenId: string; layoutId: string }
-  | { type: "add:screen"; prompt: string }
-  | { type: "edit:screen"; screenId: string; instruction: string }
-  | { type: "regenerate:layouts"; screenId: string }
-  | { type: "regenerate:designsystem" }
-  | { type: "figma:fetch"; figmaUrl: string; nodeId?: string }
-  | { type: "figma:import"; figmaUrl: string; nodeId?: string }
-  | {
-      type: "iterate";
-      sessionId: string;
-      componentId: string;
-      componentName: string;
-      currentHtml: string;
-      currentCss: string;
-      instruction: string;
-      iteration: number;
-    }
-  | { type: "retry"; sessionId: string; componentId: string }
-  | { type: "cancel" };
+  | { type: "chat:send"; conversationId?: string; message: string }
+  | { type: "chat:cancel" }
+  | { type: "prompt:edit"; promptId: string; content: string }
+  | { type: "prompt:approve"; promptId: string }
+  | { type: "conversation:load"; conversationId: string }
+  | { type: "conversation:list" }
+  | { type: "conversation:new" }
+  | { type: "conversation:delete"; conversationId: string }
+  | { type: "conversation:rename"; conversationId: string; title: string }
+  | { type: "github:connect"; token: string }
+  | { type: "github:push"; projectId: string; repo?: string }
+  | { type: "settings:update"; key: string; value: unknown };

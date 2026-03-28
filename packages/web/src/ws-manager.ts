@@ -5,7 +5,7 @@ type StateListener = () => void;
 
 interface WSState {
   isConnected: boolean;
-  sessionId: string | null;
+  conversationId: string | null;
 }
 
 class WSManager {
@@ -13,7 +13,7 @@ class WSManager {
   private url: string = "";
   private messageListeners = new Set<MessageListener>();
   private stateListeners = new Set<StateListener>();
-  private state: WSState = { isConnected: false, sessionId: null };
+  private state: WSState = { isConnected: false, conversationId: null };
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectMs = 3000;
 
@@ -26,8 +26,8 @@ class WSManager {
   private doConnect(): void {
     this.clearReconnect();
 
-    const wsUrl = this.state.sessionId
-      ? `${this.url}?sessionId=${this.state.sessionId}`
+    const wsUrl = this.state.conversationId
+      ? `${this.url}?conversationId=${this.state.conversationId}`
       : this.url;
 
     const ws = new WebSocket(wsUrl);
@@ -39,8 +39,8 @@ class WSManager {
     ws.onmessage = (event) => {
       try {
         const msg: ServerMessage = JSON.parse(event.data);
-        if (msg.type === "session:started") {
-          this.setState({ sessionId: msg.sessionId });
+        if (msg.type === "conversation:loaded") {
+          this.setState({ conversationId: msg.conversation.id });
         }
         for (const listener of this.messageListeners) {
           listener(msg);

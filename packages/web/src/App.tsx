@@ -1,164 +1,157 @@
-import { useState, useCallback, useRef } from "react";
-import type { ServerMessage, ClientMessage } from "@avv/shared";
+import { useCallback, useEffect, useState } from "react";
+import type { ServerMessage } from "@avv/shared";
 import { useAVVWebSocket } from "./hooks/useAVVWebSocket";
-import { useAgentLogs } from "./hooks/useAgentLogs";
-import { useProjectSync } from "./hooks/useProjectSync";
-import { TopBar, type Viewport } from "./components/layout/TopBar";
-import { AgenticChat } from "./components/AgenticChat";
-import { DesignSystemPicker } from "./components/DesignSystemPicker";
-import { LayoutPicker } from "./components/LayoutPicker";
-import { FullPagePreview } from "./components/FullPagePreview";
-import { ScreenTabs } from "./components/ScreenTabs";
-import { DesignSystemPanel } from "./components/DesignSystemPanel";
-
-const MAX_QUEUED_MESSAGES = 200;
+import { useChat } from "./hooks/useChat";
+import { Sidebar } from "./components/Sidebar";
+import { ChatPanel } from "./components/chat/ChatPanel";
+import { PreviewPanel } from "./components/preview/PreviewPanel";
+import { SettingsModal } from "./components/SettingsModal";
+import { Toast } from "./components/Toast";
 
 export function App() {
-  const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [toast, setToast] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const messageQueueRef = useRef<ServerMessage[]>([]);
-  const [messageSeq, setMessageSeq] = useState(0);
-
   const {
-    project,
-    phase,
-    designSystemOptions,
-    layoutOptions,
-    activeScreenId,
-    setActiveScreenId,
-    handleMessage: handleProjectMessage,
-  } = useProjectSync();
-  const { handleMessage: handleLogMessage } = useAgentLogs();
+    conversations,
+    activeConversation,
+    messages,
+    streaming,
+    files,
+    fileContents,
+    pendingPrompt,
+    previewUrl,
+    handleMessage: handleChatMessage,
+    addUserMessage,
+    clearPendingPrompt,
+  } = useChat();
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" | "info" } | null>(null);
+  const [githubStatus, setGithubStatus] = useState<{
+    connected: boolean;
+    username?: string;
+    error?: string;
+  }>({ connected: false });
 
   const onMessage = useCallback(
     (msg: ServerMessage) => {
-      handleProjectMessage(msg);
-      handleLogMessage(msg);
+      handleChatMessage(msg);
 
-      if (
-        msg.type === "generation:created" ||
-        msg.type === "figma:pushing" ||
-        msg.type === "designsystem:options" ||
-        msg.type === "layout:options"
-      ) {
-        setIsGenerating(false);
-      }
-      if (msg.type === "designsystem:selected") {
-        setIsGenerating(true);
-      }
-      if (msg.type === "generation:done" || msg.type === "error") {
-        setIsGenerating(false);
+      // Handle GitHub status
+      if (msg.type === "github:status") {
+        if (msg.status === "done") {
+          setGithubStatus({ connected: true, username: msg.repo });
+          setToast({ message: msg.repo ? `Connected: ${msg.repo}` : "GitHub connected", type: "success" });
+        } else if (msg.status === "error") {
+          setGithubStatus((prev) => ({ ...prev, error: msg.error }));
+          setToast({ message: msg.error ?? "GitHub error", type: "error" });
+        }
       }
 
-      const queue = messageQueueRef.current;
-      queue.push(msg);
-      if (queue.length > MAX_QUEUED_MESSAGES) {
-        queue.splice(0, queue.length - MAX_QUEUED_MESSAGES);
+      // Show errors as toasts
+      if (msg.type === "error") {
+        setToast({ message: msg.message, type: "error" });
       }
-      setMessageSeq((s) => s + 1);
+      if (msg.type === "chat:error") {
+        setToast({ message: msg.error, type: "error" });
+      }
     },
-    [handleProjectMessage, handleLogMessage]
+    [handleChatMessage],
   );
 
-  const drainMessages = useCallback((): ServerMessage[] => {
-    return messageQueueRef.current.splice(0);
-  }, []);
+  const { send, isConnected } = useAVVWebSocket({ onMessage });
 
-  const { send: rawSend, isConnected, sessionId } = useAVVWebSocket({ onMessage });
-
-  const send = useCallback((msg: ClientMessage) => {
-    if (msg.type === "generate" || msg.type === "chat") {
-      setIsGenerating(true);
+  useEffect(() => {
+    if (isConnected) {
+      send({ type: "conversation:list" });
     }
-    rawSend(msg);
-  }, [rawSend]);
+  }, [isConnected, send]);
 
-  const activeScreen = project?.screens.find((s) => s.id === activeScreenId) ?? null;
+  const handleSend = useCallback(
+    (message: string) => {
+      const cid = activeConversation?.id;
+      if (cid) addUserMessage(cid, message);
+      send({ type: "chat:send", conversationId: cid ?? undefined, message });
+    },
+    [send, activeConversation, addUserMessage],
+  );
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2000);
-  }, []);
+  const handleCancel = useCallback(() => {
+    send({ type: "chat:cancel" });
+  }, [send]);
 
-  const renderMainContent = () => {
-    if (phase === "design-system-picking" && designSystemOptions.length > 0) {
-      return <DesignSystemPicker options={designSystemOptions} onSend={send} />;
-    }
+  const handleSelectConversation = useCallback(
+    (id: string) => send({ type: "conversation:load", conversationId: id }),
+    [send],
+  );
 
-    if (phase === "layout-picking" && layoutOptions.length > 0 && activeScreenId) {
-      return (
-        <LayoutPicker
-          options={layoutOptions}
-          screenId={activeScreenId}
-          designSystem={project?.designSystem ?? null}
-          onSend={send}
-        />
-      );
-    }
+  const handleNewConversation = useCallback(
+    () => send({ type: "conversation:new" }),
+    [send],
+  );
 
-    if (phase === "previewing" && activeScreen) {
-      return (
-        <FullPagePreview
-          screen={activeScreen}
-          designSystem={project?.designSystem ?? null}
-          viewport={viewport}
-        />
-      );
-    }
+  const handleDeleteConversation = useCallback(
+    (id: string) => send({ type: "conversation:delete", conversationId: id }),
+    [send],
+  );
 
-    return (
-      <div className="flex-1 flex items-center justify-center bg-stone-50">
-        <div className="text-center space-y-3">
-          <span className="material-symbols-outlined text-4xl text-stone-200">auto_awesome</span>
-          <p className="text-sm font-[Noto_Serif] italic text-stone-400">
-            Describe the UI you want to build
-          </p>
-        </div>
-      </div>
-    );
-  };
+  const handleRenameConversation = useCallback(
+    (id: string, title: string) => send({ type: "conversation:rename", conversationId: id, title }),
+    [send],
+  );
+
+  const handlePromptEdit = useCallback(
+    (promptId: string, content: string) => send({ type: "prompt:edit", promptId, content }),
+    [send],
+  );
+
+  const handlePromptApprove = useCallback(
+    (promptId: string) => {
+      clearPendingPrompt();
+      send({ type: "prompt:approve", promptId });
+    },
+    [send, clearPendingPrompt],
+  );
+
+  const handleConnectGitHub = useCallback(
+    (token: string) => send({ type: "github:connect", token }),
+    [send],
+  );
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-50">
-      <TopBar
+    <div className="h-screen w-screen flex bg-neutral-950 text-neutral-100">
+      <Sidebar
+        conversations={conversations}
+        activeId={activeConversation?.id ?? null}
+        onSelect={handleSelectConversation}
+        onNew={handleNewConversation}
+        onDelete={handleDeleteConversation}
+        onRename={handleRenameConversation}
+        onOpenSettings={() => setShowSettings(true)}
+      />
+      <ChatPanel
+        messages={messages}
+        streaming={streaming}
+        pendingPrompt={pendingPrompt}
         isConnected={isConnected}
-        viewport={viewport}
-        onViewportChange={setViewport}
+        onSend={handleSend}
+        onCancel={handleCancel}
+        onPromptEdit={handlePromptEdit}
+        onPromptApprove={handlePromptApprove}
+      />
+      <PreviewPanel files={files} fileContents={fileContents} previewUrl={previewUrl} />
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onConnectGitHub={handleConnectGitHub}
+        githubStatus={githubStatus}
       />
 
-      <div className="flex flex-1 min-h-0">
-        <AgenticChat
-          messageSeq={messageSeq}
-          drainMessages={drainMessages}
-          isConnected={isConnected}
-          sessionId={sessionId}
-          isGenerating={isGenerating}
-          onSend={send}
-        />
-
-        {project && (project.screens.length > 0 || project.designSystem) && (
-          <ScreenTabs
-            screens={project.screens}
-            activeScreenId={activeScreenId}
-            designSystem={project.designSystem}
-            onSelectScreen={setActiveScreenId}
-            onSend={send}
-          />
-        )}
-
-        {renderMainContent()}
-
-        {phase === "previewing" && project?.designSystem && (
-          <DesignSystemPanel designSystem={project.designSystem} onSend={send} />
-        )}
-      </div>
-
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-stone-800 text-white px-4 py-2 rounded-lg text-xs font-[Public_Sans] z-[100] shadow-lg">
-          {toast}
-        </div>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
       )}
     </div>
   );
