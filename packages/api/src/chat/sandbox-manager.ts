@@ -1,6 +1,7 @@
 import { Sandbox } from "agentbox";
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative } from "path";
+import type { SandboxStep, SandboxStepStatus } from "@avv/shared";
 import { storage } from "../storage";
 
 const AGENTBOX_URL = process.env.AGENTBOX_URL ?? "http://178.128.214.76:8080";
@@ -16,6 +17,33 @@ interface SandboxSession {
 }
 
 const activeSandboxes = new Map<string, SandboxSession>();
+
+export type SandboxProgressCallback = (
+  step: SandboxStep,
+  status: SandboxStepStatus,
+  error?: string,
+) => void;
+
+/**
+ * Poll inside the guest until Vite responds on the expected port.
+ */
+async function waitForViteReady(sandbox: Sandbox, timeoutMs = 30000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      // Use bash built-in /dev/tcp — no wget/curl dependency
+      const result = await sandbox.exec(
+        `bash -c 'echo > /dev/tcp/127.0.0.1/${VITE_GUEST_PORT}' 2>/dev/null && echo ok || echo fail`,
+        5,
+      );
+      if (result.stdout.trim() === "ok") return;
+    } catch {
+      // exec timeout — Vite not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`Vite dev server failed to become ready within ${timeoutMs / 1000}s`);
+}
 
 /**
  * Check if the AgentBox daemon is reachable.
@@ -34,15 +62,20 @@ export async function isAgentBoxAvailable(): Promise<boolean> {
 /**
  * Create a sandbox, upload the template, install deps, start Vite dev server,
  * and set up port forwarding. Returns the host URL for preview.
+ *
+ * Each step reports progress via the optional `onProgress` callback so the
+ * frontend can show a real-time loading screen.
  */
 export async function createSandboxSession(
   conversationId: string,
+  onProgress?: SandboxProgressCallback,
 ): Promise<SandboxSession> {
   // Return existing if already running
   const existing = activeSandboxes.get(conversationId);
   if (existing) return existing;
 
-  // Boot sandbox
+  // Step 1: Boot sandbox
+  onProgress?.("boot", "running");
   const sandbox = await Sandbox.create({
     url: AGENTBOX_URL,
     memory_mb: 2048,
@@ -53,35 +86,50 @@ export async function createSandboxSession(
   });
 
   try {
-    // Ensure loopback is up (needed for Vite dev server)
     await sandbox.exec("ip link set lo up && ip addr add 127.0.0.1/8 dev lo 2>/dev/null; true");
-
-    // Create project directory
     await sandbox.exec(`mkdir -p ${WORKSPACE}`);
+    onProgress?.("boot", "done");
 
-    // Upload template files
+    // Step 2: Upload template
+    onProgress?.("upload", "running");
     await uploadDirectory(sandbox, TEMPLATE_DIR, WORKSPACE);
+    onProgress?.("upload", "done");
 
-    // Install dependencies
+    // Step 3: Install dependencies
+    onProgress?.("install", "running");
     const installResult = await sandbox.exec(
       `cd ${WORKSPACE} && npm install`,
       120, // 2 min timeout for install
     );
     if (installResult.exit_code !== 0) {
-      throw new Error(`npm install failed: ${installResult.stderr}`);
+      const errMsg = `npm install failed: ${installResult.stderr}`;
+      onProgress?.("install", "error", errMsg);
+      throw new Error(errMsg);
     }
+    onProgress?.("install", "done");
 
-    // Start Vite dev server in background
+    // Step 4: Start Vite and poll for readiness
+    // Use nohup + redirect to fully detach Vite from the exec session.
+    // First run triggers dep optimization (pre-bundling React, framer-motion, etc.)
+    // which can take 30-60s in a constrained VM.
+    onProgress?.("vite", "running");
     await sandbox.exec(
-      `cd ${WORKSPACE} && npx vite --port ${VITE_GUEST_PORT} --host 0.0.0.0 &`,
+      `cd ${WORKSPACE} && nohup npx vite --port ${VITE_GUEST_PORT} --host 0.0.0.0 > /tmp/vite.log 2>&1 &`,
       5,
     );
+    try {
+      await waitForViteReady(sandbox, 60000);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Vite startup failed";
+      onProgress?.("vite", "error", errMsg);
+      throw err;
+    }
+    onProgress?.("vite", "done");
 
-    // Wait a moment for Vite to start
-    await new Promise((r) => setTimeout(r, 3000));
-
-    // Set up port forwarding
+    // Step 5: Port forwarding
+    onProgress?.("connect", "running");
     const forward = await sandbox.portForward(VITE_GUEST_PORT);
+    onProgress?.("connect", "done");
 
     const session: SandboxSession = {
       sandbox,

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FileEntry } from "@avv/shared";
+import type { SandboxProgressStep } from "../../hooks/useChat";
 import { FileTree } from "./FileTree";
 import { CodeViewer } from "./CodeViewer";
 import { LivePreview } from "./LivePreview";
@@ -11,16 +12,17 @@ interface PreviewPanelProps {
   fileContents: Map<string, string>;
   previewUrl: string | null;
   refreshTrigger?: number;
+  sandboxProgress?: SandboxProgressStep[] | null;
 }
 
-export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger }: PreviewPanelProps) {
+export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, sandboxProgress }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("preview");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const selectedContent = selectedFile ? fileContents.get(selectedFile) : null;
 
   return (
-    <aside className="w-[480px] min-w-[320px] border-l border-neutral-800 flex flex-col bg-neutral-950">
+    <aside className="w-full md:w-[480px] md:min-w-[320px] border-l border-neutral-800 flex flex-col bg-neutral-950">
       {/* Tabs */}
       <div className="border-b border-neutral-800 flex">
         <TabButton
@@ -38,7 +40,7 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger }
 
       {/* Content */}
       {activeTab === "preview" ? (
-        <LivePreview files={fileContents} previewUrl={previewUrl} refreshTrigger={refreshTrigger} />
+        <LivePreview files={fileContents} previewUrl={previewUrl} refreshTrigger={refreshTrigger} sandboxProgress={sandboxProgress} />
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
           {/* File tree */}

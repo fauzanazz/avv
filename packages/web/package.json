@@ -10,16 +10,17 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@avv/shared": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@avv/shared": "workspace:*"
+    "react-router-dom": "^7.13.2"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4",
     "tailwindcss": "^4",
-    "@tailwindcss/vite": "^4",
     "typescript": "^5.7",
     "vite": "^6"
   }

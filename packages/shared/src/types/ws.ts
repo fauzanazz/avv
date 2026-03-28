@@ -6,6 +6,9 @@ import type {
 import type { FileEntry, FileAction } from "./files";
 import type { PromptBuilderAgent } from "./prompt";
 
+export type SandboxStep = "boot" | "upload" | "install" | "vite" | "connect";
+export type SandboxStepStatus = "pending" | "running" | "done" | "error";
+
 // ── Server -> Client ─────────────────────────────────────────
 
 export type ServerMessage =
@@ -43,6 +46,13 @@ export type ServerMessage =
     }
   | { type: "file:tree"; files: FileEntry[] }
   | { type: "preview:ready"; url: string }
+  | {
+      type: "sandbox:progress";
+      conversationId: string;
+      step: SandboxStep;
+      status: SandboxStepStatus;
+      error?: string;
+    }
   | {
       type: "github:status";
       status: "connecting" | "pushing" | "done" | "error";

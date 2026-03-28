@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import type { ClientMessage, ServerMessage, FileEntry } from "@avv/shared";
+import type { ClientMessage, ServerMessage, FileEntry, SandboxStep, SandboxStepStatus } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
 import {
   createConversation,
@@ -33,6 +33,18 @@ import {
   restoreSandboxFromStorage,
 } from "./chat/sandbox-manager";
 import { storage } from "./storage";
+
+function makeSandboxProgressBroadcaster(conversationId: string) {
+  return (step: SandboxStep, status: SandboxStepStatus, error?: string) => {
+    connectionStore.broadcast(conversationId, {
+      type: "sandbox:progress",
+      conversationId,
+      step,
+      status,
+      error,
+    });
+  };
+}
 
 export function createWSHandler() {
   return {
@@ -655,7 +667,7 @@ async function handleCodeGeneration(
     });
 
     try {
-      await createSandboxSession(cid);
+      await createSandboxSession(cid, makeSandboxProgressBroadcaster(cid));
       useSandbox = true;
       console.log(`[CodeGen] Using AgentBox sandbox for ${cid}`);
     } catch (err) {
@@ -813,7 +825,7 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
 
   if (!hasSandbox(conversationId) && await isAgentBoxAvailable()) {
     try {
-      const session = await createSandboxSession(conversationId);
+      const session = await createSandboxSession(conversationId, makeSandboxProgressBroadcaster(conversationId));
       await restoreSandboxFromStorage(conversationId);
       hasPreview = true;
       console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);

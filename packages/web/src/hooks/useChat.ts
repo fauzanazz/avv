@@ -7,6 +7,8 @@ import type {
   FileEntry,
   ThinkingStep,
   ToolCall,
+  SandboxStep,
+  SandboxStepStatus,
 } from "@avv/shared";
 
 export interface StreamingState {
@@ -20,6 +22,12 @@ export interface PendingPrompt {
   promptId: string;
   content: string;
   agentsOutput: Record<string, string>;
+}
+
+export interface SandboxProgressStep {
+  step: SandboxStep;
+  status: SandboxStepStatus;
+  error?: string;
 }
 
 export interface ChatState {
@@ -46,6 +54,7 @@ export function useChat() {
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [sandboxProgress, setSandboxProgress] = useState<SandboxProgressStep[] | null>(null);
 
   // Use ref for streaming text to avoid closure staling during rapid updates
   const streamTextRef = useRef("");
@@ -185,6 +194,34 @@ export function useChat() {
         setPreviewUrl(msg.url);
         break;
 
+      case "sandbox:progress": {
+        // Clear progress once the final step completes or any step errors
+        if ((msg.step === "connect" && msg.status === "done") || msg.status === "error") {
+          setSandboxProgress((prev) => {
+            const ALL_STEPS: SandboxStep[] = ["boot", "upload", "install", "vite", "connect"];
+            const steps: SandboxProgressStep[] = prev ??
+              ALL_STEPS.map((s) => ({ step: s, status: "pending" as SandboxStepStatus }));
+            const updated = steps.map((s) =>
+              s.step === msg.step ? { ...s, status: msg.status, error: msg.error } : s,
+            );
+            // On error, show the error state briefly then it'll naturally clear
+            // On connect done, clear immediately
+            if (msg.status === "done") return null;
+            return updated;
+          });
+          break;
+        }
+        setSandboxProgress((prev) => {
+          const ALL_STEPS: SandboxStep[] = ["boot", "upload", "install", "vite", "connect"];
+          const steps: SandboxProgressStep[] = prev ??
+            ALL_STEPS.map((s) => ({ step: s, status: "pending" as SandboxStepStatus }));
+          return steps.map((s) =>
+            s.step === msg.step ? { ...s, status: msg.status, error: msg.error } : s,
+          );
+        });
+        break;
+      }
+
       case "file:tree":
         setFiles(msg.files);
         break;
@@ -237,6 +274,7 @@ export function useChat() {
     pendingPrompt,
     previewUrl,
     refreshTrigger,
+    sandboxProgress,
     handleMessage,
     addUserMessage,
     setActiveConversation,

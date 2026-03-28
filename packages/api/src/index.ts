@@ -24,6 +24,38 @@ app.route("/api", healthRoute);
 app.all("/preview/:conversationId/*", async (c) => {
   const conversationId = c.req.param("conversationId");
   const filePath = c.req.path.replace(`/preview/${conversationId}`, "") || "/";
+  const prefix = `/preview/${conversationId}`;
+
+  // Rewrite absolute paths in text responses so sub-resources route back through the proxy.
+  // Without this, the sandbox HTML contains src="/src/main.tsx" which resolves to the AVV
+  // frontend's source (same origin) instead of the sandbox's.
+  function rewriteResponse(res: Response): Response {
+    const ct = res.headers.get("content-type") ?? "";
+    const isText = ct.includes("html") || ct.includes("javascript") || ct.includes("css");
+    if (!isText) {
+      return new Response(res.body, { status: res.status, headers: res.headers });
+    }
+    // Stream → text, rewrite paths, return new response
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const text = await res.text();
+          // Rewrite absolute paths: "/src/..." → "/preview/{cid}/src/..."
+          // Match src="/ href="/ from "/ import("/ import "/ but NOT "//" (protocol-relative)
+          const rewritten = text.replace(
+            /(?<=(from\s+|import\s*\(|import\s+)\s*["']|(?:src|href|action)=["'])\/((?!preview\/|\/)[^"'\s])/g,
+            `${prefix}/$2`,
+          );
+          controller.enqueue(new TextEncoder().encode(rewritten));
+          controller.close();
+        },
+      }),
+      {
+        status: res.status,
+        headers: res.headers,
+      },
+    );
+  }
 
   // 1. Try proxying to AgentBox sandbox
   const sandboxUrl = getSandboxPreviewUrl(conversationId);
@@ -35,10 +67,7 @@ app.all("/preview/:conversationId/*", async (c) => {
         headers: c.req.raw.headers,
         signal: AbortSignal.timeout(5000),
       });
-      return new Response(proxyRes.body, {
-        status: proxyRes.status,
-        headers: proxyRes.headers,
-      });
+      return rewriteResponse(proxyRes);
     } catch {
       // Sandbox not responding, fall through
     }
@@ -54,17 +83,14 @@ app.all("/preview/:conversationId/*", async (c) => {
         headers: c.req.raw.headers,
         signal: AbortSignal.timeout(5000),
       });
-      return new Response(proxyRes.body, {
-        status: proxyRes.status,
-        headers: proxyRes.headers,
-      });
+      return rewriteResponse(proxyRes);
     } catch {
       // Dev server not responding, fall through
     }
   }
 
   // 3. Fallback: serve from storage (R2 in prod, local in dev)
-  const staticPath = c.req.path.replace(`/preview/${conversationId}/`, "");
+  const staticPath = filePath.replace(/^\//, "");
   if (!staticPath) {
     return c.text("Not found", 404);
   }

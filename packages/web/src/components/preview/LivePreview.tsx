@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import type { SandboxProgressStep } from "../../hooks/useChat";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -8,13 +9,22 @@ const VIEWPORTS: Record<Viewport, { width: string; label: string }> = {
   desktop: { width: "100%", label: "Desktop" },
 };
 
+const STEP_LABELS: Record<string, string> = {
+  boot: "Booting sandbox",
+  upload: "Uploading template",
+  install: "Installing dependencies",
+  vite: "Starting dev server",
+  connect: "Connecting preview",
+};
+
 interface LivePreviewProps {
   files: Map<string, string>;
   previewUrl: string | null;
   refreshTrigger?: number;
+  sandboxProgress?: SandboxProgressStep[] | null;
 }
 
-export function LivePreview({ files, previewUrl, refreshTrigger = 0 }: LivePreviewProps) {
+export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProgress }: LivePreviewProps) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [refreshKey, setRefreshKey] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -33,6 +43,44 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0 }: LivePrevi
 
     return () => clearTimeout(debounceRef.current);
   }, [refreshTrigger]);
+
+  // Show progress UI while sandbox is still setting up (takes priority over iframe)
+  const sandboxInProgress = sandboxProgress?.some(
+    (s) => s.status === "running" || s.status === "pending",
+  );
+
+  if (sandboxInProgress && sandboxProgress) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="space-y-3 w-64">
+          <p className="text-xs text-neutral-400 font-medium mb-4">Setting up preview</p>
+          {sandboxProgress.map((s) => (
+            <div key={s.step} className="flex items-center gap-2.5">
+              <StepIndicator status={s.status} />
+              <span
+                className={`text-xs ${
+                  s.status === "running"
+                    ? "text-neutral-200"
+                    : s.status === "done"
+                      ? "text-neutral-500"
+                      : s.status === "error"
+                        ? "text-red-400"
+                        : "text-neutral-600"
+                }`}
+              >
+                {STEP_LABELS[s.step] ?? s.step}
+              </span>
+            </div>
+          ))}
+          {sandboxProgress.some((s) => s.status === "error") && (
+            <p className="text-[10px] text-red-400/70 mt-2">
+              {sandboxProgress.find((s) => s.status === "error")?.error}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const hasContent = previewUrl || files.size > 0;
 
@@ -94,4 +142,21 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0 }: LivePrevi
       </div>
     </div>
   );
+}
+
+function StepIndicator({ status }: { status: string }) {
+  switch (status) {
+    case "done":
+      return <span className="text-green-400 text-xs w-4 text-center">{"\u2713"}</span>;
+    case "running":
+      return (
+        <span className="text-neutral-300 text-xs w-4 text-center animate-spin inline-block">
+          {"\u2699"}
+        </span>
+      );
+    case "error":
+      return <span className="text-red-400 text-xs w-4 text-center">{"\u2717"}</span>;
+    default:
+      return <span className="text-neutral-600 text-xs w-4 text-center">{"\u2022"}</span>;
+  }
 }

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import type { ServerMessage } from "@avv/shared";
 import { useAVVWebSocket } from "./hooks/useAVVWebSocket";
 import { useChat } from "./hooks/useChat";
-import { Sidebar } from "./components/Sidebar";
-import { ChatPanel } from "./components/chat/ChatPanel";
-import { PreviewPanel } from "./components/preview/PreviewPanel";
+import { ConversationsPage } from "./pages/ConversationsPage";
+import { ChatPage } from "./pages/ChatPage";
 import { SettingsModal } from "./components/SettingsModal";
 import { Toast } from "./components/Toast";
 
-export function App() {
+function AppRoutes() {
   const {
     conversations,
     activeConversation,
@@ -19,6 +19,7 @@ export function App() {
     pendingPrompt,
     previewUrl,
     refreshTrigger,
+    sandboxProgress,
     handleMessage: handleChatMessage,
     addUserMessage,
     clearPendingPrompt,
@@ -32,9 +33,16 @@ export function App() {
     error?: string;
   }>({ connected: false });
 
+  const navigate = useNavigate();
+
   const onMessage = useCallback(
     (msg: ServerMessage) => {
       handleChatMessage(msg);
+
+      // Navigate to chat page when a new conversation is created
+      if (msg.type === "conversation:loaded") {
+        navigate(`/chat/${msg.conversation.id}`, { replace: true });
+      }
 
       // Handle GitHub status
       if (msg.type === "github:status") {
@@ -55,7 +63,7 @@ export function App() {
         setToast({ message: msg.error, type: "error" });
       }
     },
-    [handleChatMessage],
+    [handleChatMessage, navigate],
   );
 
   const { send, isConnected } = useAVVWebSocket({ onMessage });
@@ -79,11 +87,6 @@ export function App() {
     send({ type: "chat:cancel" });
   }, [send]);
 
-  const handleSelectConversation = useCallback(
-    (id: string) => send({ type: "conversation:load", conversationId: id }),
-    [send],
-  );
-
   const handleNewConversation = useCallback(
     () => send({ type: "conversation:new" }),
     [send],
@@ -96,6 +99,11 @@ export function App() {
 
   const handleRenameConversation = useCallback(
     (id: string, title: string) => send({ type: "conversation:rename", conversationId: id, title }),
+    [send],
+  );
+
+  const handleLoadConversation = useCallback(
+    (id: string) => send({ type: "conversation:load", conversationId: id }),
     [send],
   );
 
@@ -118,27 +126,44 @@ export function App() {
   );
 
   return (
-    <div className="h-screen w-screen flex bg-neutral-950 text-neutral-100">
-      <Sidebar
-        conversations={conversations}
-        activeId={activeConversation?.id ?? null}
-        onSelect={handleSelectConversation}
-        onNew={handleNewConversation}
-        onDelete={handleDeleteConversation}
-        onRename={handleRenameConversation}
-        onOpenSettings={() => setShowSettings(true)}
-      />
-      <ChatPanel
-        messages={messages}
-        streaming={streaming}
-        pendingPrompt={pendingPrompt}
-        isConnected={isConnected}
-        onSend={handleSend}
-        onCancel={handleCancel}
-        onPromptEdit={handlePromptEdit}
-        onPromptApprove={handlePromptApprove}
-      />
-      <PreviewPanel files={files} fileContents={fileContents} previewUrl={previewUrl} refreshTrigger={refreshTrigger} />
+    <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <ConversationsPage
+              conversations={conversations}
+              isConnected={isConnected}
+              onNew={handleNewConversation}
+              onDelete={handleDeleteConversation}
+              onRename={handleRenameConversation}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          }
+        />
+        <Route
+          path="/chat/:id"
+          element={
+            <ChatPage
+              messages={messages}
+              streaming={streaming}
+              pendingPrompt={pendingPrompt}
+              isConnected={isConnected}
+              files={files}
+              fileContents={fileContents}
+              previewUrl={previewUrl}
+              refreshTrigger={refreshTrigger}
+              sandboxProgress={sandboxProgress}
+              activeConversationId={activeConversation?.id ?? null}
+              onSend={handleSend}
+              onCancel={handleCancel}
+              onPromptEdit={handlePromptEdit}
+              onPromptApprove={handlePromptApprove}
+              onLoadConversation={handleLoadConversation}
+            />
+          }
+        />
+      </Routes>
 
       <SettingsModal
         isOpen={showSettings}
@@ -154,6 +179,14 @@ export function App() {
           onDismiss={() => setToast(null)}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
