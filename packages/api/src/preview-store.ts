@@ -1,37 +1,31 @@
-import { dirname } from "path";
 import { getSetting, setSetting } from "./chat/settings-manager";
+import { dirname } from "path";
 
 const DB_KEY_PREFIX = "tracked_files:";
 
 /**
- * Tracks project files per conversation. Persisted to SQLite settings table
- * so it survives server restarts.
+ * Tracks project files per conversation using relative paths.
+ * Persisted to SQLite settings table so it survives server restarts.
  */
 class PreviewStore {
   private cache = new Map<string, Set<string>>();
 
-  trackFile(conversationId: string, filePath: string): void {
+  /** Track a file by its relative path (e.g., "src/App.tsx"). */
+  trackFile(conversationId: string, relativePath: string): void {
     if (!this.cache.has(conversationId)) {
-      // Load from DB on first access
       const saved = getSetting<string[]>(DB_KEY_PREFIX + conversationId);
       this.cache.set(conversationId, new Set(saved ?? []));
     }
-    this.cache.get(conversationId)!.add(filePath);
+    this.cache.get(conversationId)!.add(relativePath);
 
-    // Persist to DB
     setSetting(DB_KEY_PREFIX + conversationId, Array.from(this.cache.get(conversationId)!));
   }
 
-  getProjectDir(conversationId: string): string | null {
-    const files = this.getTrackedFiles(conversationId);
-    return this.findCommonDir(files);
-  }
-
+  /** Get all tracked relative file paths for a conversation. */
   getTrackedFiles(conversationId: string): string[] {
     if (this.cache.has(conversationId)) {
       return Array.from(this.cache.get(conversationId)!);
     }
-    // Load from DB
     const saved = getSetting<string[]>(DB_KEY_PREFIX + conversationId);
     if (saved) {
       this.cache.set(conversationId, new Set(saved));
@@ -40,28 +34,24 @@ class PreviewStore {
     return [];
   }
 
+  /** Get the common project directory from tracked file paths. */
+  getProjectDir(conversationId: string): string | null {
+    const files = this.getTrackedFiles(conversationId);
+    if (files.length === 0) return null;
+    // Find common directory prefix
+    const dirs = files.map((f) => dirname(f));
+    let prefix = dirs[0];
+    for (const d of dirs) {
+      while (!d.startsWith(prefix)) {
+        prefix = dirname(prefix);
+      }
+    }
+    return prefix;
+  }
+
   clear(conversationId: string): void {
     this.cache.delete(conversationId);
     setSetting(DB_KEY_PREFIX + conversationId, []);
-  }
-
-  private findCommonDir(paths: string[]): string | null {
-    if (paths.length === 0) return null;
-    if (paths.length === 1) return dirname(paths[0]);
-
-    const dirs = paths.map((p) => dirname(p).split("/"));
-    const common: string[] = [];
-
-    for (let i = 0; i < dirs[0].length; i++) {
-      const segment = dirs[0][i];
-      if (dirs.every((d) => d[i] === segment)) {
-        common.push(segment);
-      } else {
-        break;
-      }
-    }
-
-    return common.length > 0 ? common.join("/") : null;
   }
 }
 

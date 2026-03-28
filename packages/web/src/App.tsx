@@ -18,6 +18,7 @@ export function App() {
     fileContents,
     pendingPrompt,
     previewUrl,
+    refreshTrigger,
     handleMessage: handleChatMessage,
     addUserMessage,
     clearPendingPrompt,
@@ -137,7 +138,7 @@ export function App() {
         onPromptEdit={handlePromptEdit}
         onPromptApprove={handlePromptApprove}
       />
-      <PreviewPanel files={files} fileContents={fileContents} previewUrl={previewUrl} />
+      <PreviewPanel files={files} fileContents={fileContents} previewUrl={previewUrl} refreshTrigger={refreshTrigger} />
 
       <SettingsModal
         isOpen={showSettings}

@@ -10,9 +10,10 @@ interface PreviewPanelProps {
   files: FileEntry[];
   fileContents: Map<string, string>;
   previewUrl: string | null;
+  refreshTrigger?: number;
 }
 
-export function PreviewPanel({ files, fileContents, previewUrl }: PreviewPanelProps) {
+export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("preview");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
@@ -37,7 +38,7 @@ export function PreviewPanel({ files, fileContents, previewUrl }: PreviewPanelPr
 
       {/* Content */}
       {activeTab === "preview" ? (
-        <LivePreview files={fileContents} previewUrl={previewUrl} />
+        <LivePreview files={fileContents} previewUrl={previewUrl} refreshTrigger={refreshTrigger} />
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
           {/* File tree */}

@@ -17,18 +17,22 @@ import { setSetting } from "./chat/settings-manager";
 import { connectGitHub, createRepo, getGitHubConfig } from "./github";
 import { classifyMessage, type Route } from "./chat/router";
 import type { MessageMetadata, ThinkingStep, ToolCall, AgentOutput } from "@avv/shared";
-import { existsSync, readFileSync } from "fs";
-import { basename, dirname } from "path";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { join, relative } from "path";
 import { previewStore } from "./preview-store";
-import { scaffoldProject, getProjectDir as getScaffoldedDir } from "./chat/scaffolder";
+import { scaffoldProject, getProjectDir, getOrCreateProjectDir, cleanupTempDir } from "./chat/scaffolder";
 import { startDevServer, stopDevServer, getDevServerPort } from "./chat/dev-server";
 import {
   isAgentBoxAvailable,
   createSandboxSession,
   syncFileToSandbox,
-  getSandboxPreviewUrl,
   destroySandbox,
+  hasSandbox,
+  checkSandboxHealth,
+  execInSandbox,
+  restoreSandboxFromStorage,
 } from "./chat/sandbox-manager";
+import { storage } from "./storage";
 
 export function createWSHandler() {
   return {
@@ -127,6 +131,8 @@ async function handleClientMessage(
     case "conversation:delete": {
       stopDevServer(msg.conversationId);
       destroySandbox(msg.conversationId).catch(() => {});
+      cleanupTempDir(msg.conversationId).catch(() => {});
+      storage.delete(msg.conversationId).catch(() => {});
       deleteConversation(msg.conversationId);
       const conversations = listConversations();
       connectionStore.send(ws, { type: "conversations:list", conversations });
@@ -229,6 +235,125 @@ async function handleClientMessage(
   }
 }
 
+// ── Project File Scanner ────────────────────────────────────
+
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".cache", ".vite"]);
+
+function scanProjectChanges(dir: string, since: number): string[] {
+  const changed: string[] = [];
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        changed.push(...scanProjectChanges(fullPath, since));
+      } else {
+        try {
+          const stat = statSync(fullPath);
+          if (stat.mtimeMs > since) changed.push(fullPath);
+        } catch { /* ignore */ }
+      }
+    }
+  } catch { /* ignore unreadable dirs */ }
+  return changed;
+}
+
+// ── Sandbox Fallback Helper ─────────────────────────────────
+
+async function syncFileWithFallback(
+  cid: string,
+  filePath: string,
+  projectDir: string,
+): Promise<void> {
+  try {
+    await syncFileToSandbox(cid, filePath, projectDir);
+  } catch (err) {
+    const healthy = await checkSandboxHealth(cid);
+    if (!healthy) {
+      console.log(`[Sandbox] Dead sandbox detected for ${cid}, falling back to local dev server`);
+      await destroySandbox(cid);
+
+      if (!getDevServerPort(cid)) {
+        try { await startDevServer(cid, projectDir); } catch { /* non-fatal */ }
+      }
+
+      connectionStore.broadcast(cid, {
+        type: "chat:error",
+        conversationId: cid,
+        error: "Sandbox disconnected — switched to local preview",
+      });
+      connectionStore.broadcast(cid, { type: "preview:ready", url: `/preview/${cid}/` });
+    } else {
+      // Sandbox is alive but sync failed (transient error) — retry once
+      console.warn(`[Sandbox] Transient sync failure for ${filePath}:`, err);
+      try {
+        await syncFileToSandbox(cid, filePath, projectDir);
+      } catch {
+        console.error(`[Sandbox] Retry failed for ${filePath}, file out of sync`);
+      }
+    }
+  }
+}
+
+// ── Bash Completion Handler ─────────────────────────────────
+
+function handleBashCompletion(
+  cid: string,
+  callId: string,
+  toolCalls: ToolCall[],
+  bashStartTimes: Map<string, number>,
+  projectDir: string | null,
+): void {
+  const startTime = bashStartTimes.get(callId);
+  bashStartTimes.delete(callId);
+
+  if (!projectDir || !startTime) return;
+
+  const sandboxActive = hasSandbox(cid);
+
+  // Scan for files created/modified by the Bash command
+  const changedFiles = scanProjectChanges(projectDir, startTime);
+  const alreadyTracked = new Set(previewStore.getTrackedFiles(cid));
+
+  for (const filePath of changedFiles) {
+    try {
+      const content = readFileSync(filePath, "utf-8");
+      const relPath = relative(projectDir, filePath);
+      const isNew = !alreadyTracked.has(relPath);
+      previewStore.trackFile(cid, relPath);
+      storage.put(cid, relPath, content).catch(() => {});
+      connectionStore.broadcast(cid, {
+        type: "file:changed",
+        path: relPath,
+        content,
+        action: isNew ? "created" : "updated",
+      });
+      if (sandboxActive) {
+        syncFileWithFallback(cid, filePath, projectDir).catch(() => {});
+      }
+    } catch { /* ignore binary files */ }
+  }
+
+  // Detect pnpm add → install in sandbox
+  if (sandboxActive) {
+    const tracked = toolCalls.find((t) => t.id === callId);
+    const cmd = (tracked?.args?.command) as string | undefined;
+    if (cmd) {
+      const match = cmd.match(/\bpnpm\s+add\s+(.+)/);
+      if (match) {
+        // Extract only valid package tokens — filter out flags and shell operators
+        const PKG_PATTERN = /^(@[\w.-]+\/)?[\w.-]+(@[^\s]*)?$/;
+        const packages = match[1].trim().split(/\s+/).filter((t) => PKG_PATTERN.test(t));
+        if (packages.length > 0) {
+          const safeList = packages.join(" ");
+          execInSandbox(cid, `cd /workspace/project && npm install ${safeList}`, 120).catch(() => {});
+          console.log(`[Sandbox] Syncing pnpm add: npm install ${safeList}`);
+        }
+      }
+    }
+  }
+}
+
 // ── Chat Send Handler ────────────────────────────────────────
 
 async function handleChatSend(
@@ -288,6 +413,9 @@ async function handleChatSend(
   const thinkingSteps: ThinkingStep[] = [];
   const toolCalls: ToolCall[] = [];
   let assistantText = "";
+  const bashStartTimes = new Map<string, number>();
+  const projectDir = getProjectDir(cid);
+  const sandboxActive = hasSandbox(cid);
 
   const onMessage = (serverMsg: ServerMessage) => {
     // Collect metadata
@@ -324,24 +452,37 @@ async function handleChatSend(
       if (serverMsg.status === "completed" && (resolvedTool === "Write" || resolvedTool === "Edit")) {
         const tracked = toolCalls.find((t) => t.id === serverMsg.callId);
         const filePath = (tracked?.args?.file_path ?? serverMsg.args.file_path) as string | undefined;
-        if (filePath && existsSync(filePath)) {
+        if (filePath && existsSync(filePath) && projectDir) {
           try {
             const content = readFileSync(filePath, "utf-8");
-            // Track for static serving
-            previewStore.trackFile(cid!, filePath);
+            const relPath = relative(projectDir, filePath);
+            previewStore.trackFile(cid!, relPath);
+            storage.put(cid!, relPath, content).catch(() => {});
             connectionStore.broadcast(cid!, {
               type: "file:changed",
-              path: filePath,
+              path: relPath,
               content,
               action: resolvedTool === "Write" ? "created" : "updated",
             });
-            // Send preview URL
             connectionStore.broadcast(cid!, {
               type: "preview:ready",
-              url: `/preview/${cid}/index.html`,
+              url: `/preview/${cid}/`,
             });
+            if (sandboxActive) {
+              syncFileWithFallback(cid!, filePath, projectDir).catch(() => {});
+            }
           } catch { /* ignore read errors */ }
         }
+      }
+
+      // Track Bash start times for file scanning
+      if (resolvedTool === "Bash" && serverMsg.status === "running") {
+        bashStartTimes.set(serverMsg.callId, Date.now());
+      }
+
+      // Handle Bash completion — scan for created files + pnpm add sync
+      if (resolvedTool === "Bash" && serverMsg.status === "completed") {
+        handleBashCompletion(cid!, serverMsg.callId, toolCalls, bashStartTimes, projectDir);
       }
     }
     if (serverMsg.type === "chat:text" && !("streaming" in serverMsg && serverMsg.streaming)) {
@@ -359,14 +500,10 @@ async function handleChatSend(
       onMessage,
     });
 
-    // Send file tree if any file events were emitted
-    const trackedFiles = toolCalls
-      .filter((t) => (t.tool === "Write" || t.tool === "Edit") && t.status === "completed")
-      .map((t) => t.args.file_path as string)
-      .filter(Boolean);
-
-    if (trackedFiles.length > 0) {
-      const tree = buildFileTree(trackedFiles);
+    // Send file tree from all tracked files (relative paths)
+    const allTrackedFiles = previewStore.getTrackedFiles(cid);
+    if (allTrackedFiles.length > 0) {
+      const tree = buildFileTree(allTrackedFiles);
       connectionStore.broadcast(cid, { type: "file:tree", files: tree });
     }
 
@@ -506,8 +643,9 @@ async function handleCodeGeneration(
   }
 
   // ── Try AgentBox sandbox for preview, fall back to local dev server ──
+  // Always use proxy URL — never expose raw sandbox IPs or localhost ports
   let useSandbox = false;
-  let previewUrl = `/preview/${cid}/`;
+  const previewUrl = `/preview/${cid}/`;
 
   if (await isAgentBoxAvailable()) {
     connectionStore.broadcast(cid, {
@@ -519,7 +657,6 @@ async function handleCodeGeneration(
     try {
       await createSandboxSession(cid);
       useSandbox = true;
-      previewUrl = getSandboxPreviewUrl(cid) ?? `/preview/${cid}/`;
       console.log(`[CodeGen] Using AgentBox sandbox for ${cid}`);
     } catch (err) {
       console.warn("[CodeGen] Sandbox creation failed, falling back to local:", err);
@@ -528,7 +665,6 @@ async function handleCodeGeneration(
   }
 
   if (!useSandbox) {
-    // Fall back to local Vite dev server
     connectionStore.broadcast(cid, {
       type: "agent:activity",
       agent: "router",
@@ -540,10 +676,6 @@ async function handleCodeGeneration(
     } catch (err) {
       console.error("[CodeGen] Dev server start failed:", err);
     }
-
-    previewUrl = getDevServerPort(cid)
-      ? `http://localhost:${getDevServerPort(cid)}/`
-      : `/preview/${cid}/`;
   }
 
   connectionStore.broadcast(cid, { type: "preview:ready", url: previewUrl });
@@ -557,6 +689,7 @@ async function handleCodeGeneration(
   // ── Run code generation agent ───────────────────────────────
   const thinkingSteps: ThinkingStep[] = [];
   const toolCalls: ToolCall[] = [];
+  const bashStartTimes = new Map<string, number>();
 
   const onMessage = (serverMsg: ServerMessage) => {
     if (serverMsg.type === "chat:thinking") {
@@ -581,27 +714,38 @@ async function handleCodeGeneration(
         });
       }
 
-      // File tracking + sandbox sync
+      // File tracking + sandbox sync for Write/Edit
       if (serverMsg.status === "completed" && (resolvedTool === "Write" || resolvedTool === "Edit")) {
         const tracked = toolCalls.find((t) => t.id === serverMsg.callId);
         const filePath = (tracked?.args?.file_path ?? serverMsg.args.file_path) as string | undefined;
         if (filePath && existsSync(filePath)) {
           try {
             const content = readFileSync(filePath, "utf-8");
-            previewStore.trackFile(cid, filePath);
+            const relPath = relative(projectDir, filePath);
+            previewStore.trackFile(cid, relPath);
+            storage.put(cid, relPath, content).catch(() => {});
             connectionStore.broadcast(cid, {
               type: "file:changed",
-              path: filePath,
+              path: relPath,
               content,
               action: resolvedTool === "Write" ? "created" : "updated",
             });
 
-            // Sync to sandbox if active
             if (useSandbox) {
-              syncFileToSandbox(cid, filePath, projectDir).catch(() => {});
+              syncFileWithFallback(cid, filePath, projectDir).catch(() => {});
             }
           } catch { /* ignore */ }
         }
+      }
+
+      // Track Bash start times for file scanning
+      if (resolvedTool === "Bash" && serverMsg.status === "running") {
+        bashStartTimes.set(serverMsg.callId, Date.now());
+      }
+
+      // Handle Bash completion — scan for created files + pnpm add sync
+      if (resolvedTool === "Bash" && serverMsg.status === "completed") {
+        handleBashCompletion(cid, serverMsg.callId, toolCalls, bashStartTimes, projectDir);
       }
     }
 
@@ -617,13 +761,10 @@ async function handleCodeGeneration(
       cwd: projectDir,
     });
 
-    // File tree
-    const trackedFiles = toolCalls
-      .filter((t) => (t.tool === "Write" || t.tool === "Edit") && t.status === "completed")
-      .map((t) => t.args.file_path as string)
-      .filter(Boolean);
-    if (trackedFiles.length > 0) {
-      connectionStore.broadcast(cid, { type: "file:tree", files: buildFileTree(trackedFiles) });
+    // File tree from all tracked files (relative paths)
+    const allTrackedFiles = previewStore.getTrackedFiles(cid);
+    if (allTrackedFiles.length > 0) {
+      connectionStore.broadcast(cid, { type: "file:tree", files: buildFileTree(allTrackedFiles) });
     }
 
     // Persist
@@ -633,6 +774,9 @@ async function handleCodeGeneration(
       if (toolCalls.length > 0) metadata.toolCalls = toolCalls;
       appendMessage(cid, "assistant", fullText, Object.keys(metadata).length > 0 ? metadata : undefined);
     }
+
+    // Clean up ephemeral temp dir (no-op in dev)
+    cleanupTempDir(cid).catch(() => {});
   } catch (err) {
     console.error("[CodeGen] Failed:", err);
     connectionStore.broadcast(cid, { type: "chat:error", conversationId: cid, error: "Code generation failed" });
@@ -645,19 +789,19 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
   const trackedFiles = previewStore.getTrackedFiles(conversationId);
   if (trackedFiles.length === 0) return;
 
-  // Send file contents for each tracked file
-  for (const filePath of trackedFiles) {
-    if (existsSync(filePath)) {
-      try {
-        const content = readFileSync(filePath, "utf-8");
+  // Send file contents from storage (relative paths)
+  for (const relPath of trackedFiles) {
+    try {
+      const content = await storage.get(conversationId, relPath);
+      if (content) {
         connectionStore.send(ws, {
           type: "file:changed",
-          path: filePath,
+          path: relPath,
           content,
           action: "created",
         });
-      } catch { /* ignore */ }
-    }
+      }
+    } catch { /* ignore */ }
   }
 
   // Send file tree
@@ -665,85 +809,57 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
   connectionStore.send(ws, { type: "file:tree", files: tree });
 
   // Restore preview — try sandbox first, fall back to local dev server
-  const projectDir = getScaffoldedDir(conversationId);
-  let previewUrl: string | null = null;
+  let hasPreview = false;
 
-  if (projectDir) {
-    // Try sandbox if available and no active session exists
-    if (!getSandboxPreviewUrl(conversationId) && await isAgentBoxAvailable()) {
-      try {
-        const session = await createSandboxSession(conversationId);
-        // Re-upload all tracked files to the fresh sandbox
-        for (const filePath of trackedFiles) {
-          if (existsSync(filePath)) {
-            await syncFileToSandbox(conversationId, filePath, projectDir).catch(() => {});
-          }
-        }
-        previewUrl = getSandboxPreviewUrl(conversationId);
-        console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
-      } catch {
-        // Sandbox unavailable, fall through to local
-      }
-    } else if (getSandboxPreviewUrl(conversationId)) {
-      previewUrl = getSandboxPreviewUrl(conversationId);
+  if (!hasSandbox(conversationId) && await isAgentBoxAvailable()) {
+    try {
+      const session = await createSandboxSession(conversationId);
+      await restoreSandboxFromStorage(conversationId);
+      hasPreview = true;
+      console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
+    } catch {
+      // Sandbox unavailable, fall through to local
     }
+  } else if (hasSandbox(conversationId)) {
+    hasPreview = true;
+  }
 
-    // Fall back to local dev server
-    if (!previewUrl) {
-      if (!getDevServerPort(conversationId)) {
-        try {
-          await startDevServer(conversationId, projectDir);
-        } catch {
-          // Non-fatal
-        }
-      }
-      const devPort = getDevServerPort(conversationId);
-      previewUrl = devPort
-        ? `http://localhost:${devPort}/`
-        : `/preview/${conversationId}/`;
+  // Fall back to local dev server (dev mode only — gated in startDevServer)
+  if (!hasPreview) {
+    const projectDir = await getOrCreateProjectDir(conversationId);
+    if (projectDir && !getDevServerPort(conversationId)) {
+      try { await startDevServer(conversationId, projectDir); } catch { /* non-fatal */ }
     }
   }
 
-  if (previewUrl) {
-    connectionStore.send(ws, {
-      type: "preview:ready",
-      url: previewUrl,
-    });
-  }
+  connectionStore.send(ws, {
+    type: "preview:ready",
+    url: `/preview/${conversationId}/`,
+  });
 }
 
 // ── File Tree Builder ────────────────────────────────────────
 
 function buildFileTree(filePaths: string[]): FileEntry[] {
-  // Group files by their directory structure
+  // Paths are already relative (e.g., "src/App.tsx")
   const dirMap = new Map<string, FileEntry>();
   const rootFiles: FileEntry[] = [];
 
-  // Find common prefix to make paths relative
-  const commonPrefix = filePaths.length > 1
-    ? findCommonPrefix(filePaths)
-    : dirname(filePaths[0]) + "/";
-
-  for (const fullPath of filePaths) {
-    const relPath = fullPath.startsWith(commonPrefix)
-      ? fullPath.slice(commonPrefix.length)
-      : basename(fullPath);
-
+  for (const relPath of filePaths) {
     const parts = relPath.split("/").filter(Boolean);
 
     if (parts.length === 1) {
       rootFiles.push({
         name: parts[0],
-        path: fullPath,
+        path: relPath,
         isDirectory: false,
       });
     } else {
-      // Ensure parent directories exist
-      let currentPath = commonPrefix;
+      let currentPath = "";
       let parentChildren = rootFiles;
 
       for (let i = 0; i < parts.length - 1; i++) {
-        currentPath += parts[i] + "/";
+        currentPath += (currentPath ? "/" : "") + parts[i];
         let dir = dirMap.get(currentPath);
         if (!dir) {
           dir = {
@@ -760,26 +876,11 @@ function buildFileTree(filePaths: string[]): FileEntry[] {
 
       parentChildren.push({
         name: parts[parts.length - 1],
-        path: fullPath,
+        path: relPath,
         isDirectory: false,
       });
     }
   }
 
   return rootFiles;
-}
-
-function findCommonPrefix(paths: string[]): string {
-  if (paths.length === 0) return "";
-  const parts = paths[0].split("/");
-  let prefix = "";
-  for (let i = 0; i < parts.length - 1; i++) {
-    const candidate = prefix + parts[i] + "/";
-    if (paths.every((p) => p.startsWith(candidate))) {
-      prefix = candidate;
-    } else {
-      break;
-    }
-  }
-  return prefix;
 }

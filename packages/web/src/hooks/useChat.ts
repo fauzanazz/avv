@@ -45,6 +45,7 @@ export function useChat() {
   const [fileContents, setFileContents] = useState<Map<string, string>>(new Map());
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Use ref for streaming text to avoid closure staling during rapid updates
   const streamTextRef = useRef("");
@@ -198,6 +199,7 @@ export function useChat() {
           }
           return next;
         });
+        setRefreshTrigger((n) => n + 1);
         break;
 
       case "error":
@@ -234,6 +236,7 @@ export function useChat() {
     fileContents,
     pendingPrompt,
     previewUrl,
+    refreshTrigger,
     handleMessage,
     addUserMessage,
     setActiveConversation,

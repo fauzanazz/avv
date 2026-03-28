@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -11,11 +11,28 @@ const VIEWPORTS: Record<Viewport, { width: string; label: string }> = {
 interface LivePreviewProps {
   files: Map<string, string>;
   previewUrl: string | null;
+  refreshTrigger?: number;
 }
 
-export function LivePreview({ files, previewUrl }: LivePreviewProps) {
+export function LivePreview({ files, previewUrl, refreshTrigger = 0 }: LivePreviewProps) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [refreshKey, setRefreshKey] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const prevTriggerRef = useRef(refreshTrigger);
+
+  // Debounced auto-refresh when files change (500ms)
+  useEffect(() => {
+    // Skip if trigger hasn't actually changed (covers mount + conversation switch reset)
+    if (refreshTrigger === prevTriggerRef.current) return;
+    prevTriggerRef.current = refreshTrigger;
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setRefreshKey((k) => k + 1);
+    }, 500);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [refreshTrigger]);
 
   const hasContent = previewUrl || files.size > 0;
 

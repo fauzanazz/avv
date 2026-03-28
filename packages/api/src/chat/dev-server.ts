@@ -10,12 +10,17 @@ const activeServers = new Map<string, DevServer>();
 
 /**
  * Start a Vite dev server for a project.
- * Returns the port the server is listening on.
+ * Returns the port the server is listening on, or -1 if blocked in production.
  */
 export async function startDevServer(
   conversationId: string,
   projectDir: string,
 ): Promise<number> {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[DevServer] Local dev server disabled in production — use sandbox preview");
+    return -1;
+  }
+
   // If already running, return existing port
   const existing = activeServers.get(conversationId);
   if (existing) return existing.port;

@@ -3,14 +3,12 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { healthRoute } from "./routes/health";
 import { createWSHandler } from "./ws";
-import { previewStore } from "./preview-store";
 import type { WSData } from "./store";
 import { validatePrompts } from "./agents/prompt-loader";
 import { initDb } from "./db";
-import { join } from "path";
-import { existsSync, readFileSync } from "fs";
 import { getDevServerPort, stopAllDevServers } from "./chat/dev-server";
-import { destroyAllSandboxes } from "./chat/sandbox-manager";
+import { destroyAllSandboxes, getSandboxPreviewUrl, startIdleCleanup, stopIdleCleanup } from "./chat/sandbox-manager";
+import { storage } from "./storage";
 
 initDb();
 validatePrompts();
@@ -22,47 +20,61 @@ app.use("*", logger());
 
 app.route("/api", healthRoute);
 
-// Proxy preview requests to the Vite dev server, fallback to static file serving
+// Proxy preview requests — sandbox first, then local dev server, then static
 app.all("/preview/:conversationId/*", async (c) => {
   const conversationId = c.req.param("conversationId");
+  const filePath = c.req.path.replace(`/preview/${conversationId}`, "") || "/";
 
-  // Try proxying to Vite dev server first
-  const devPort = getDevServerPort(conversationId);
-  if (devPort) {
-    const filePath = c.req.path.replace(`/preview/${conversationId}`, "") || "/";
-    const targetUrl = `http://localhost:${devPort}${filePath}`;
-
+  // 1. Try proxying to AgentBox sandbox
+  const sandboxUrl = getSandboxPreviewUrl(conversationId);
+  if (sandboxUrl) {
     try {
+      const targetUrl = `${sandboxUrl.replace(/\/$/, "")}${filePath}`;
       const proxyRes = await fetch(targetUrl, {
         method: c.req.method,
         headers: c.req.raw.headers,
         signal: AbortSignal.timeout(5000),
       });
-
       return new Response(proxyRes.body, {
         status: proxyRes.status,
         headers: proxyRes.headers,
       });
     } catch {
-      // Dev server not responding, fall through to static
+      // Sandbox not responding, fall through
     }
   }
 
-  // Fallback: serve static files directly
-  const projectDir = previewStore.getProjectDir(conversationId);
-  if (!projectDir) {
-    return c.text("No project found", 404);
+  // 2. Try proxying to local Vite dev server
+  const devPort = getDevServerPort(conversationId);
+  if (devPort) {
+    try {
+      const targetUrl = `http://localhost:${devPort}${filePath}`;
+      const proxyRes = await fetch(targetUrl, {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      return new Response(proxyRes.body, {
+        status: proxyRes.status,
+        headers: proxyRes.headers,
+      });
+    } catch {
+      // Dev server not responding, fall through
+    }
   }
 
-  const filePath = c.req.path.replace(`/preview/${conversationId}/`, "");
-  const fullPath = join(projectDir, filePath);
-
-  if (!existsSync(fullPath)) {
+  // 3. Fallback: serve from storage (R2 in prod, local in dev)
+  const staticPath = c.req.path.replace(`/preview/${conversationId}/`, "");
+  if (!staticPath) {
     return c.text("Not found", 404);
   }
 
-  const content = readFileSync(fullPath);
-  const ext = filePath.split(".").pop()?.toLowerCase();
+  const content = await storage.getBuffer(conversationId, staticPath);
+  if (!content) {
+    return c.text("Not found", 404);
+  }
+
+  const ext = staticPath.split(".").pop()?.toLowerCase();
 
   const mimeTypes: Record<string, string> = {
     html: "text/html",
@@ -81,7 +93,7 @@ app.all("/preview/:conversationId/*", async (c) => {
     ttf: "font/ttf",
   };
 
-  return new Response(content, {
+  return new Response(Buffer.from(content), {
     headers: {
       "Content-Type": mimeTypes[ext ?? ""] ?? "application/octet-stream",
       "Cache-Control": "no-cache",
@@ -113,13 +125,18 @@ Bun.serve<WSData>({
 console.log(`AVV API running on http://localhost:${port}`);
 console.log(`WebSocket available at ws://localhost:${port}/ws`);
 
+// Start idle sandbox cleanup sweep
+startIdleCleanup();
+
 // Clean up on shutdown
 process.on("SIGINT", async () => {
+  stopIdleCleanup();
   stopAllDevServers();
   await destroyAllSandboxes();
   process.exit(0);
 });
 process.on("SIGTERM", async () => {
+  stopIdleCleanup();
   stopAllDevServers();
   await destroyAllSandboxes();
   process.exit(0);
