@@ -69,7 +69,10 @@ export async function isAgentBoxAvailable(): Promise<boolean> {
 export async function createSandboxSession(
   conversationId: string,
   onProgress?: SandboxProgressCallback,
+  options?: { startVite?: boolean },
 ): Promise<SandboxSession> {
+  const startVite = options?.startVite ?? true;
+
   // Return existing if already running
   const existing = activeSandboxes.get(conversationId);
   if (existing) return existing;
@@ -108,25 +111,7 @@ export async function createSandboxSession(
     }
     onProgress?.("install", "done");
 
-    // Step 4: Start Vite and poll for readiness
-    // Use nohup + redirect to fully detach Vite from the exec session.
-    // First run triggers dep optimization (pre-bundling React, framer-motion, etc.)
-    // which can take 30-60s in a constrained VM.
-    onProgress?.("vite", "running");
-    await sandbox.exec(
-      `cd ${WORKSPACE} && nohup npx vite --port ${VITE_GUEST_PORT} --host 0.0.0.0 > /tmp/vite.log 2>&1 &`,
-      5,
-    );
-    try {
-      await waitForViteReady(sandbox, 60000);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "Vite startup failed";
-      onProgress?.("vite", "error", errMsg);
-      throw err;
-    }
-    onProgress?.("vite", "done");
-
-    // Step 5: Port forwarding
+    // Step 4: Port forwarding (before Vite so startViteInSandbox can use the session)
     onProgress?.("connect", "running");
     const forward = await sandbox.portForward(VITE_GUEST_PORT);
     onProgress?.("connect", "done");
@@ -139,15 +124,47 @@ export async function createSandboxSession(
     };
     activeSandboxes.set(conversationId, session);
 
+    // Step 5: Start Vite (skipped during restore — files are uploaded first)
+    if (startVite) {
+      await startViteInSandbox(conversationId, onProgress);
+    }
+
     console.log(
       `[Sandbox] Created for ${conversationId} — preview at http://${forward.local_address}/`,
     );
     return session;
   } catch (err) {
     // Clean up on failure
+    activeSandboxes.delete(conversationId);
     await sandbox.destroy().catch(() => {});
     throw err;
   }
+}
+
+/**
+ * Start (or restart) the Vite dev server inside a sandbox.
+ * Call this after all project files are in place.
+ */
+export async function startViteInSandbox(
+  conversationId: string,
+  onProgress?: SandboxProgressCallback,
+): Promise<void> {
+  const session = activeSandboxes.get(conversationId);
+  if (!session) throw new Error(`No sandbox session for ${conversationId}`);
+
+  onProgress?.("vite", "running");
+  await session.sandbox.exec(
+    `cd ${WORKSPACE} && nohup npx vite --port ${VITE_GUEST_PORT} --host 0.0.0.0 > /tmp/vite.log 2>&1 &`,
+    5,
+  );
+  try {
+    await waitForViteReady(session.sandbox, 60000);
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Vite startup failed";
+    onProgress?.("vite", "error", errMsg);
+    throw err;
+  }
+  onProgress?.("vite", "done");
 }
 
 /**
@@ -351,9 +368,19 @@ export function stopIdleCleanup(): void {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-/**
- * Recursively upload a local directory to the sandbox.
- */
+/** Extensions that are TypeScript compile artifacts — skip when source exists */
+const COMPILED_EXTS = [".js", ".js.map", ".d.ts", ".d.ts.map"];
+
+function isCompiledArtifact(entry: string, entries: string[]): boolean {
+  for (const ext of COMPILED_EXTS) {
+    if (!entry.endsWith(ext)) continue;
+    const stem = entry.slice(0, -ext.length);
+    // If a .ts or .tsx source file exists alongside, this is a compile artifact
+    if (entries.includes(`${stem}.ts`) || entries.includes(`${stem}.tsx`)) return true;
+  }
+  return false;
+}
+
 async function uploadDirectory(
   sandbox: Sandbox,
   localDir: string,
@@ -362,8 +389,9 @@ async function uploadDirectory(
   const entries = readdirSync(localDir);
 
   for (const entry of entries) {
-    // Skip node_modules and hidden files
+    // Skip node_modules, hidden files, and compiled artifacts alongside source
     if (entry === "node_modules" || entry.startsWith(".")) continue;
+    if (isCompiledArtifact(entry, entries)) continue;
 
     const localPath = join(localDir, entry);
     const remotePath = `${remoteDir}/${entry}`;

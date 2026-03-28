@@ -25,6 +25,7 @@ import { startDevServer, stopDevServer, getDevServerPort } from "./chat/dev-serv
 import {
   isAgentBoxAvailable,
   createSandboxSession,
+  startViteInSandbox,
   syncFileToSandbox,
   destroySandbox,
   hasSandbox,
@@ -825,8 +826,12 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
 
   if (!hasSandbox(conversationId) && await isAgentBoxAvailable()) {
     try {
-      const session = await createSandboxSession(conversationId, makeSandboxProgressBroadcaster(conversationId));
+      const progress = makeSandboxProgressBroadcaster(conversationId);
+      // Boot sandbox WITHOUT starting Vite — restore files first so Vite
+      // builds its module graph from the complete file set, not the skeleton template.
+      const session = await createSandboxSession(conversationId, progress, { startVite: false });
       await restoreSandboxFromStorage(conversationId);
+      await startViteInSandbox(conversationId, progress);
       hasPreview = true;
       console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
     } catch {
