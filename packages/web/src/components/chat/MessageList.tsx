@@ -28,14 +28,14 @@ export function MessageList({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
+      <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
         {/* Streaming assistant response */}
         {streaming.isStreaming && (
-          <div className="space-y-1">
+          <div className="animate-fade-up space-y-2">
             {streaming.thinkingSteps.map((step, i) => (
               <ThinkingStep key={i} content={step.content} />
             ))}
@@ -43,15 +43,18 @@ export function MessageList({
               <ToolCallStep key={tc.id} toolCall={tc} />
             ))}
             {streaming.text && (
-              <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-wrap">
+              <div className="text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">
                 {streaming.text}
-                <span className="inline-block w-2 h-4 bg-neutral-400 animate-pulse ml-0.5 align-middle" />
+                <span className="inline-block w-[2px] h-[18px] bg-[var(--accent-primary)] animate-pulse-soft ml-0.5 align-middle rounded-full" />
               </div>
             )}
             {!streaming.text && streaming.toolCalls.length === 0 && streaming.thinkingSteps.length === 0 && (
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                Thinking...
+              <div className="flex items-center gap-2.5 text-xs text-[var(--text-muted)] py-1">
+                <span className="flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "200ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "400ms" }} />
+                </span>
               </div>
             )}
           </div>
@@ -78,16 +81,16 @@ function MessageBubble({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] bg-neutral-800 rounded-2xl rounded-br-sm px-4 py-2.5 text-sm text-neutral-100">
+        <div className="max-w-[80%] bg-[var(--bg-surface)] rounded-2xl rounded-br-md px-4 py-2.5 text-sm text-[var(--text-primary)]">
           {message.content}
         </div>
       </div>
     );
   }
 
-  // Assistant message
+  // Assistant message — clean, no bubble (Claude-style)
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {message.metadata?.thinkingSteps?.map((step, i) => (
         <ThinkingStep key={i} content={step.content} />
       ))}
@@ -95,7 +98,7 @@ function MessageBubble({ message }: { message: Message }) {
         <ToolCallStep key={tc.id} toolCall={tc} />
       ))}
       {message.content && (
-        <div className="text-sm text-neutral-200 leading-relaxed whitespace-pre-wrap">
+        <div className="text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">
           {message.content}
         </div>
       )}

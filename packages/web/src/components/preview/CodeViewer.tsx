@@ -8,27 +8,27 @@ export function CodeViewer({ content, filename }: CodeViewerProps) {
   const gutterWidth = String(lines.length).length;
 
   return (
-    <div className="flex-1 overflow-auto bg-neutral-950">
+    <div className="flex-1 overflow-auto bg-[var(--bg-primary)]">
       {/* File header */}
-      <div className="sticky top-0 z-10 bg-neutral-900 border-b border-neutral-800 px-4 py-1.5 flex items-center gap-2">
-        <span className="text-xs text-neutral-400 font-mono truncate">{filename}</span>
+      <div className="sticky top-0 z-10 bg-[var(--bg-secondary)] border-b border-[var(--border-subtle)] px-4 py-2 flex items-center gap-2">
+        <span className="text-[11px] text-[var(--text-tertiary)] font-mono truncate">{filename}</span>
         <CopyButton content={content} />
       </div>
 
       {/* Code */}
-      <pre className="text-xs font-mono leading-5 p-0">
+      <pre className="text-[11px] font-mono leading-5 p-0">
         {lines.map((line, i) => (
           <div
             key={i}
-            className="flex hover:bg-neutral-900/50"
+            className="flex hover:bg-[var(--bg-secondary)]"
           >
             <span
-              className="select-none text-neutral-700 text-right pr-4 pl-4 shrink-0"
+              className="select-none text-[var(--text-muted)] opacity-40 text-right pr-4 pl-4 shrink-0"
               style={{ minWidth: gutterWidth * 8 + 32 }}
             >
               {i + 1}
             </span>
-            <code className="text-neutral-300 whitespace-pre pr-4 flex-1">
+            <code className="text-[var(--text-secondary)] whitespace-pre pr-4 flex-1">
               {line || " "}
             </code>
           </div>
@@ -50,7 +50,7 @@ function CopyButton({ content }: { content: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors ml-auto"
+      className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] transition-colors ml-auto"
     >
       Copy
     </button>

@@ -8,9 +8,9 @@ interface ToastProps {
 }
 
 const COLORS = {
-  error: "bg-red-900/80 text-red-200 border-red-800",
-  success: "bg-green-900/80 text-green-200 border-green-800",
-  info: "bg-neutral-800 text-neutral-200 border-neutral-700",
+  error: "bg-red-950/90 text-red-200 border-red-900/50",
+  success: "bg-emerald-950/90 text-emerald-200 border-emerald-900/50",
+  info: "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]",
 };
 
 export function Toast({
@@ -26,7 +26,7 @@ export function Toast({
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg border text-xs font-medium shadow-lg animate-fade-in ${COLORS[type]}`}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl border text-xs font-medium shadow-lg animate-fade-in backdrop-blur-sm ${COLORS[type]}`}
     >
       {message}
     </div>

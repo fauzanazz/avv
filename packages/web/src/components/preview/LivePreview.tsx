@@ -32,7 +32,6 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
 
   // Debounced auto-refresh when files change (500ms)
   useEffect(() => {
-    // Skip if trigger hasn't actually changed (covers mount + conversation switch reset)
     if (refreshTrigger === prevTriggerRef.current) return;
     prevTriggerRef.current = refreshTrigger;
 
@@ -44,7 +43,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
     return () => clearTimeout(debounceRef.current);
   }, [refreshTrigger]);
 
-  // Show progress UI while sandbox is still setting up (takes priority over iframe)
+  // Show progress UI while sandbox is still setting up
   const sandboxInProgress = sandboxProgress?.some(
     (s) => s.status === "running" || s.status === "pending",
   );
@@ -52,20 +51,20 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
   if (sandboxInProgress && sandboxProgress) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="space-y-3 w-64">
-          <p className="text-xs text-neutral-400 font-medium mb-4">Setting up preview</p>
+        <div className="space-y-3 w-56">
+          <p className="text-[11px] text-[var(--text-muted)] font-medium mb-4">Setting up preview</p>
           {sandboxProgress.map((s) => (
             <div key={s.step} className="flex items-center gap-2.5">
               <StepIndicator status={s.status} />
               <span
-                className={`text-xs ${
+                className={`text-[11px] transition-colors ${
                   s.status === "running"
-                    ? "text-neutral-200"
+                    ? "text-[var(--text-secondary)]"
                     : s.status === "done"
-                      ? "text-neutral-500"
+                      ? "text-[var(--text-muted)]"
                       : s.status === "error"
                         ? "text-red-400"
-                        : "text-neutral-600"
+                        : "text-[var(--text-muted)] opacity-40"
                 }`}
               >
                 {STEP_LABELS[s.step] ?? s.step}
@@ -88,8 +87,8 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-2">
-          <div className="text-2xl text-neutral-800">{"\u25B6"}</div>
-          <p className="text-xs text-neutral-600">No previewable content yet</p>
+          <div className="text-2xl text-[var(--text-muted)] opacity-20">{"\u25B6"}</div>
+          <p className="text-xs text-[var(--text-muted)]">Preview will appear here</p>
         </div>
       </div>
     );
@@ -100,16 +99,16 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
   return (
     <div className="flex-1 flex flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-neutral-800">
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-subtle)]">
         {(Object.entries(VIEWPORTS) as [Viewport, { width: string; label: string }][]).map(
           ([key, { label }]) => (
             <button
               key={key}
               onClick={() => setViewport(key)}
-              className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+              className={`text-[10px] px-2 py-0.5 rounded-md transition-colors ${
                 viewport === key
-                  ? "bg-neutral-700 text-neutral-200"
-                  : "text-neutral-500 hover:text-neutral-300"
+                  ? "bg-[var(--bg-surface)] text-[var(--text-secondary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-tertiary)]"
               }`}
             >
               {label}
@@ -118,18 +117,18 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
         )}
         <button
           onClick={() => setRefreshKey((k) => k + 1)}
-          className="text-[10px] text-neutral-500 hover:text-neutral-300 ml-auto px-2 py-0.5 transition-colors"
+          className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] ml-auto px-2 py-0.5 transition-colors"
         >
           Refresh
         </button>
       </div>
 
       {/* Iframe */}
-      <div className="flex-1 flex justify-center bg-neutral-900 overflow-auto p-2">
+      <div className="flex-1 flex justify-center bg-[var(--bg-secondary)] overflow-auto p-2">
         <iframe
           key={refreshKey}
           src={previewUrl ?? undefined}
-          className="bg-white rounded"
+          className="bg-white rounded-lg"
           style={{
             width,
             height: "100%",
@@ -145,18 +144,27 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
 }
 
 function StepIndicator({ status }: { status: string }) {
+  const base = "w-3 h-3 flex-shrink-0";
   switch (status) {
     case "done":
-      return <span className="text-green-400 text-xs w-4 text-center">{"\u2713"}</span>;
+      return (
+        <svg className={`${base} text-emerald-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M4 8.5l2.5 2.5 5.5-5.5" />
+        </svg>
+      );
     case "running":
       return (
-        <span className="text-neutral-300 text-xs w-4 text-center animate-spin inline-block">
-          {"\u2699"}
-        </span>
+        <svg className={`${base} text-[var(--text-secondary)] animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="8" cy="8" r="6" strokeDasharray="28" strokeDashoffset="8" strokeLinecap="round" />
+        </svg>
       );
     case "error":
-      return <span className="text-red-400 text-xs w-4 text-center">{"\u2717"}</span>;
+      return (
+        <svg className={`${base} text-red-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M5 5l6 6M11 5l-6 6" />
+        </svg>
+      );
     default:
-      return <span className="text-neutral-600 text-xs w-4 text-center">{"\u2022"}</span>;
+      return <span className={`${base} inline-flex items-center justify-center text-[var(--text-muted)] opacity-30 text-[8px]`}>{"\u2022"}</span>;
   }
 }

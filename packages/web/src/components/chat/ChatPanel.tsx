@@ -2,7 +2,6 @@ import type { Message } from "@avv/shared";
 import type { StreamingState, PendingPrompt } from "../../hooks/useChat";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
-import { PromptReview } from "./PromptReview";
 
 interface ChatPanelProps {
   messages: Message[];
@@ -30,18 +29,18 @@ export function ChatPanel({
   return (
     <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
       {isEmpty ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-3 max-w-md">
-            <div className="text-4xl text-neutral-700">&#9672;</div>
-            <h2 className="text-lg font-medium text-neutral-300">
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="text-center space-y-4 max-w-lg">
+            <div className="text-5xl opacity-10 select-none mb-2">{"\u2726"}</div>
+            <h2 className="text-xl font-medium text-[var(--text-primary)] tracking-tight">
               What do you want to build?
             </h2>
-            <p className="text-sm text-neutral-500 leading-relaxed">
-              Describe a website, app, component, or design. The prompt builder team
-              will analyze your request and generate a comprehensive spec.
+            <p className="text-sm text-[var(--text-tertiary)] leading-relaxed max-w-sm mx-auto">
+              Describe a website, app, or component. AVV will design and build it
+              in a sandboxed environment with live preview.
             </p>
             {!isConnected && (
-              <p className="text-xs text-amber-500/70">Connecting to server...</p>
+              <p className="text-xs text-amber-500/70 mt-2">Connecting to server...</p>
             )}
           </div>
         </div>

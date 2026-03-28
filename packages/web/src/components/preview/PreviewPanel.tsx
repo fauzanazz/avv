@@ -22,9 +22,9 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, 
   const selectedContent = selectedFile ? fileContents.get(selectedFile) : null;
 
   return (
-    <aside className="w-full md:w-[480px] md:min-w-[320px] border-l border-neutral-800 flex flex-col bg-neutral-950">
+    <aside className="w-full md:w-[480px] md:min-w-[320px] border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]">
       {/* Tabs */}
-      <div className="border-b border-neutral-800 flex">
+      <div className="border-b border-[var(--border-subtle)] flex px-2">
         <TabButton
           label="Preview"
           active={activeTab === "preview"}
@@ -44,7 +44,7 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, 
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
           {/* File tree */}
-          <div className="border-b border-neutral-800 max-h-[40%] overflow-y-auto">
+          <div className="border-b border-[var(--border-subtle)] max-h-[40%] overflow-y-auto">
             <FileTree
               files={files}
               selectedPath={selectedFile}
@@ -57,7 +57,7 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, 
             <CodeViewer content={selectedContent} filename={selectedFile} />
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-xs text-neutral-600">
+              <p className="text-xs text-[var(--text-muted)]">
                 {files.length > 0
                   ? "Select a file to view"
                   : "No files generated yet"}
@@ -84,17 +84,20 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 px-4 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+      className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-1.5 relative ${
         active
-          ? "text-neutral-200 border-b-2 border-neutral-400"
-          : "text-neutral-600 hover:text-neutral-400"
+          ? "text-[var(--text-primary)]"
+          : "text-[var(--text-muted)] hover:text-[var(--text-tertiary)]"
       }`}
     >
       {label}
       {badge != null && (
-        <span className="bg-neutral-700 text-neutral-300 text-[10px] px-1.5 py-0.5 rounded-full">
+        <span className="bg-[var(--bg-surface)] text-[var(--text-tertiary)] text-[10px] px-1.5 py-0.5 rounded-full">
           {badge}
         </span>
+      )}
+      {active && (
+        <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-[var(--text-secondary)] rounded-full" />
       )}
     </button>
   );

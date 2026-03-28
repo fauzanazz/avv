@@ -34,42 +34,53 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
   };
 
   return (
-    <div className="border-t border-neutral-800 p-4">
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (isStreaming) return;
-              handleSubmit();
-            }
-          }}
-          placeholder="Describe what you want to build..."
-          disabled={disabled}
-          rows={1}
-          className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 pr-20 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-neutral-500 resize-none disabled:opacity-50"
-        />
-        <div className="absolute right-2 bottom-2 flex items-center gap-1">
-          {isStreaming ? (
-            <button
-              onClick={onCancel}
-              className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-900/50 text-red-300 hover:bg-red-900/80 transition-colors"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={!value.trim() || disabled}
-              className="px-3 py-1.5 text-xs font-medium rounded-md bg-neutral-700 text-neutral-200 hover:bg-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Send
-            </button>
-          )}
+    <div className="px-4 pb-4 pt-2">
+      <div className="max-w-3xl mx-auto">
+        <div className="relative input-glow rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] transition-all duration-200">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (isStreaming) return;
+                handleSubmit();
+              }
+            }}
+            placeholder="Describe what you want to build..."
+            disabled={disabled}
+            rows={1}
+            className="w-full bg-transparent px-4 py-3 pr-14 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none resize-none disabled:opacity-50"
+          />
+          <div className="absolute right-2 bottom-1.5 flex items-center">
+            {isStreaming ? (
+              <button
+                onClick={onCancel}
+                className="p-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Stop generating"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="3" y="3" width="10" height="10" rx="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!value.trim() || disabled}
+                className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                title="Send message"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2L2 8.5L7 9.5L8.5 14.5L14 2Z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
+        <p className="text-center text-[10px] text-[var(--text-muted)] mt-2 opacity-60">
+          AVV generates code in a sandboxed environment
+        </p>
       </div>
     </div>
   );

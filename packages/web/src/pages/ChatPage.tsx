@@ -54,44 +54,40 @@ export function ChatPage({
   }, [id, isConnected, activeConversationId, onLoadConversation]);
 
   return (
-    <div className="h-screen w-screen flex flex-col md:flex-row bg-neutral-950 text-neutral-100">
-      {/* Top bar */}
-      <div className="flex-none border-b border-neutral-800 px-4 py-2 flex items-center gap-3 md:hidden">
+    <div className="h-screen w-screen flex flex-col md:flex-row bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      {/* Mobile top bar */}
+      <div className="flex-none border-b border-[var(--border-subtle)] px-4 py-2.5 flex items-center gap-3 md:hidden">
         <button
           onClick={() => navigate("/")}
-          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+          className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         >
           {"\u2190"} Back
         </button>
-        <span className="text-xs text-neutral-600">|</span>
+        <span className="text-xs text-[var(--border-default)]">|</span>
         <button
           onClick={() => setMobileTab("chat")}
-          className={`text-xs transition-colors ${mobileTab === "chat" ? "text-neutral-200" : "text-neutral-500"}`}
+          className={`text-xs transition-colors ${mobileTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
         >
           Chat
         </button>
         <button
           onClick={() => setMobileTab("preview")}
-          className={`text-xs transition-colors ${mobileTab === "preview" ? "text-neutral-200" : "text-neutral-500"}`}
+          className={`text-xs transition-colors ${mobileTab === "preview" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
         >
           Preview
         </button>
       </div>
 
-      {/* Chat panel — full width on mobile when active, flex-1 on desktop */}
+      {/* Chat panel */}
       <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${mobileTab !== "chat" ? "hidden md:flex" : ""}`}>
-        {/* Desktop-only back bar */}
-        <div className="hidden md:flex border-b border-neutral-800 px-4 py-2 items-center gap-3">
+        {/* Desktop back bar */}
+        <div className="hidden md:flex border-b border-[var(--border-subtle)] px-4 py-2.5 items-center gap-3">
           <button
             onClick={() => navigate("/")}
-            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
           >
             {"\u2190"} Back
           </button>
-          <span className="text-xs text-neutral-600">|</span>
-          <span className="text-xs text-neutral-400 truncate">
-            {activeConversationId === id ? "Chat" : "Loading..."}
-          </span>
         </div>
         <ChatPanel
           messages={messages}
@@ -105,7 +101,7 @@ export function ChatPage({
         />
       </div>
 
-      {/* Preview panel — full width on mobile when active, fixed width on desktop */}
+      {/* Preview panel */}
       <div className={`flex-1 md:flex-none ${mobileTab !== "preview" ? "hidden md:flex" : "flex"}`}>
         <PreviewPanel
           files={files}

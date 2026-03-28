@@ -10,7 +10,7 @@ interface FileTreeProps {
 export function FileTree({ files, selectedPath, onSelect }: FileTreeProps) {
   if (files.length === 0) {
     return (
-      <div className="p-4 text-xs text-neutral-600">
+      <div className="p-4 text-xs text-[var(--text-muted)]">
         No files yet
       </div>
     );
@@ -49,12 +49,14 @@ function FileNode({
     return (
       <div>
         <div
-          className="flex items-center gap-1 px-2 py-0.5 cursor-pointer hover:bg-neutral-800/50 text-neutral-400"
+          className="flex items-center gap-1.5 px-2 py-1 cursor-pointer hover:bg-[var(--bg-secondary)] text-[var(--text-tertiary)] transition-colors"
           style={{ paddingLeft: depth * 16 + 8 }}
           onClick={() => setExpanded(!expanded)}
         >
-          <span className="text-[10px]">{expanded ? "\u25BE" : "\u25B8"}</span>
-          <span className="text-blue-400/70">{entry.name}/</span>
+          <svg className={`w-3 h-3 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2">
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+          <span className="text-blue-400/60">{entry.name}</span>
         </div>
         {expanded && entry.children?.map((child) => (
           <FileNode
@@ -71,12 +73,12 @@ function FileNode({
 
   return (
     <div
-      className={`flex items-center gap-1 px-2 py-0.5 cursor-pointer transition-colors ${
+      className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-colors ${
         isSelected
-          ? "bg-neutral-800 text-neutral-100"
-          : "text-neutral-400 hover:bg-neutral-800/50 hover:text-neutral-300"
+          ? "bg-[var(--bg-elevated)] text-[var(--text-primary)]"
+          : "text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-secondary)]"
       }`}
-      style={{ paddingLeft: depth * 16 + 20 }}
+      style={{ paddingLeft: depth * 16 + 24 }}
       onClick={() => onSelect(entry.path)}
     >
       <FileIcon name={entry.name} />
@@ -87,30 +89,30 @@ function FileNode({
 
 function FileIcon({ name }: { name: string }) {
   const ext = name.split(".").pop()?.toLowerCase();
-  let color = "text-neutral-600";
+  let color = "text-[var(--text-muted)]";
 
   switch (ext) {
     case "ts":
     case "tsx":
-      color = "text-blue-400";
+      color = "text-blue-400/70";
       break;
     case "js":
     case "jsx":
-      color = "text-yellow-400";
+      color = "text-yellow-400/70";
       break;
     case "css":
-      color = "text-purple-400";
+      color = "text-purple-400/70";
       break;
     case "html":
-      color = "text-orange-400";
+      color = "text-orange-400/70";
       break;
     case "json":
-      color = "text-green-400";
+      color = "text-emerald-400/70";
       break;
     case "md":
-      color = "text-neutral-400";
+      color = "text-[var(--text-muted)]";
       break;
   }
 
-  return <span className={`${color} text-[10px]`}>{"\u25A0"}</span>;
+  return <span className={`${color} text-[9px]`}>{"\u25CF"}</span>;
 }

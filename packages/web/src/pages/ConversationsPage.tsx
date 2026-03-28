@@ -21,45 +21,45 @@ export function ConversationsPage({
   const navigate = useNavigate();
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-neutral-950 text-neutral-100">
+    <div className="h-screen w-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {/* Header */}
-      <header className="border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-sm font-semibold tracking-wide text-neutral-200">AVV</h1>
-        <div className="flex items-center gap-2">
+      <header className="border-b border-[var(--border-subtle)] px-6 py-3.5 flex items-center justify-between">
+        <h1 className="text-sm font-semibold tracking-wide text-[var(--text-secondary)]">AVV</h1>
+        <div className="flex items-center gap-1.5">
           {!isConnected && (
-            <span className="text-xs text-amber-500/70">Connecting...</span>
+            <span className="text-[11px] text-amber-500/60 mr-2">Connecting...</span>
           )}
           <button
             onClick={onOpenSettings}
-            className="text-xs px-3 py-1.5 rounded text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 transition-colors"
+            className="text-xs px-3 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors"
           >
             Settings
           </button>
           <button
             onClick={onNew}
-            className="text-xs px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+            className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors"
           >
-            + New
+            New chat
           </button>
         </div>
       </header>
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto py-8 px-4">
+        <div className="max-w-xl mx-auto py-12 px-4">
           {conversations.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <div className="text-4xl text-neutral-700">{"\u25C8"}</div>
-              <p className="text-sm text-neutral-500">No conversations yet</p>
+            <div className="text-center py-20 space-y-4">
+              <div className="text-5xl opacity-10 select-none">{"\u2726"}</div>
+              <p className="text-sm text-[var(--text-tertiary)]">No conversations yet</p>
               <button
                 onClick={onNew}
-                className="text-xs px-4 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                className="text-sm px-5 py-2.5 rounded-xl bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors"
               >
-                Start a conversation
+                Start building
               </button>
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {conversations.map((c) => (
                 <ConversationRow
                   key={c.id}
@@ -90,12 +90,14 @@ function ConversationRow({
 }) {
   return (
     <div
-      className="group flex items-center px-4 py-3 rounded-lg cursor-pointer text-sm transition-colors hover:bg-neutral-900"
+      className="group flex items-center px-4 py-3 rounded-xl cursor-pointer text-sm transition-colors hover:bg-[var(--bg-secondary)]"
       onClick={onClick}
     >
-      <span className="flex-1 truncate text-neutral-300">{conversation.title}</span>
-      <span className="text-[10px] text-neutral-600 mr-3">
-        {new Date(conversation.updatedAt).toLocaleDateString()}
+      <span className="flex-1 truncate text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+        {conversation.title}
+      </span>
+      <span className="text-[11px] text-[var(--text-muted)] mr-3">
+        {formatDate(conversation.updatedAt)}
       </span>
       <button
         onClick={(e) => {
@@ -103,7 +105,7 @@ function ConversationRow({
           const newTitle = prompt("Rename conversation:", conversation.title);
           if (newTitle?.trim()) onRename(newTitle.trim());
         }}
-        className="opacity-0 group-hover:opacity-100 text-neutral-500 hover:text-neutral-300 text-xs px-1 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xs px-1.5 transition-opacity"
       >
         edit
       </button>
@@ -112,10 +114,20 @@ function ConversationRow({
           e.stopPropagation();
           onDelete();
         }}
-        className="opacity-0 group-hover:opacity-100 text-neutral-500 hover:text-red-400 text-xs px-1 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 text-xs px-1.5 transition-opacity"
       >
         {"\u00D7"}
       </button>
     </div>
   );
+}
+
+function formatDate(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

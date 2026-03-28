@@ -26,19 +26,19 @@ export function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-md shadow-2xl"
+        className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl w-full max-w-md shadow-2xl animate-fade-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
-          <h2 className="text-sm font-semibold text-neutral-200">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Settings</h2>
           <button
             onClick={onClose}
-            className="text-neutral-500 hover:text-neutral-300 text-lg transition-colors"
+            className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-lg transition-colors"
           >
             &times;
           </button>
@@ -48,18 +48,18 @@ export function SettingsModal({
         <div className="p-5 space-y-5">
           {/* GitHub PAT */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-neutral-300">
+            <label className="text-xs font-medium text-[var(--text-secondary)]">
               GitHub Personal Access Token
             </label>
-            <p className="text-[11px] text-neutral-500 leading-relaxed">
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
               Connect your GitHub account to push generated projects.
-              Create a token with <code className="text-neutral-400">repo</code> scope.
+              Create a token with <code className="text-[var(--text-tertiary)]">repo</code> scope.
             </p>
 
             {githubStatus.connected ? (
               <div className="flex items-center gap-2 py-2">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-xs text-green-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs text-emerald-400">
                   Connected as {githubStatus.username}
                 </span>
               </div>
@@ -71,11 +71,11 @@ export function SettingsModal({
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder="ghp_..."
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 pr-16 text-xs text-neutral-100 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-500 font-mono"
+                    className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-xl px-3 py-2 pr-16 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--text-muted)] font-mono transition-colors"
                   />
                   <button
                     onClick={() => setShowToken(!showToken)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] transition-colors"
                   >
                     {showToken ? "Hide" : "Show"}
                   </button>
@@ -83,7 +83,7 @@ export function SettingsModal({
                 <button
                   onClick={handleConnect}
                   disabled={!token.trim()}
-                  className="w-full py-2 text-xs font-medium rounded-lg bg-neutral-700 text-neutral-200 hover:bg-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="w-full py-2 text-xs font-medium rounded-xl bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--border-default)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Connect
                 </button>
@@ -95,14 +95,14 @@ export function SettingsModal({
           </div>
 
           {/* Divider */}
-          <div className="border-t border-neutral-800" />
+          <div className="border-t border-[var(--border-subtle)]" />
 
           {/* About */}
           <div className="space-y-1">
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-[var(--text-muted)]">
               AVV v2 — Agentic Chat Platform
             </p>
-            <p className="text-[11px] text-neutral-700">
+            <p className="text-[11px] text-[var(--text-muted)] opacity-50">
               Powered by Claude Agent SDK
             </p>
           </div>
