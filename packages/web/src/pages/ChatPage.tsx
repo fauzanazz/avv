@@ -86,7 +86,7 @@ export function ChatPage({
       </div>
 
       {/* Chat panel */}
-      <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${mobileTab !== "chat" ? "hidden md:flex" : ""}`}>
+      <div className={`flex-1 md:flex-none md:w-[40%] md:min-w-[360px] md:max-w-[560px] flex flex-col min-w-0 min-h-0 ${mobileTab !== "chat" ? "hidden md:flex" : ""}`}>
         {/* Desktop back bar */}
         <div className="hidden md:flex border-b border-[var(--border-subtle)] px-4 py-2.5 items-center gap-3">
           <button
@@ -109,7 +109,7 @@ export function ChatPage({
       </div>
 
       {/* Preview panel */}
-      <div className={`flex-1 md:flex-none ${mobileTab !== "preview" ? "hidden md:flex" : "flex"}`}>
+      <div className={`flex-1 ${mobileTab !== "preview" ? "hidden md:flex" : "flex"}`}>
         <PreviewPanel
           files={files}
           fileContents={fileContents}

@@ -89,10 +89,13 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
 
   if (!hasContent) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <div className="text-2xl text-[var(--text-muted)] opacity-20" aria-hidden="true">{"\u25B6"}</div>
-          <p className="text-xs text-[var(--text-muted)]">Preview will appear here</p>
+      <div className="flex-1 flex items-center justify-center preview-empty-bg">
+        <div className="text-center space-y-4 max-w-xs animate-fade-up">
+          <BrowserIllustration />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Your app will appear here</p>
+            <p className="text-xs text-[var(--text-muted)]">Send a message to start building</p>
+          </div>
         </div>
       </div>
     );
@@ -141,16 +144,62 @@ function IframePreview({ width, refreshKey, previewUrl }: { width: string; refre
     border: "none" as const,
   }), [width]);
 
+  if (!previewUrl) {
+    return (
+      <div className="flex-1 flex items-center justify-center preview-empty-bg">
+        <div className="text-center space-y-3 max-w-xs">
+          <BrowserIllustration />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Preview loading...</p>
+            <p className="text-xs text-[var(--text-muted)]">Files are ready — connecting preview</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex justify-center bg-[var(--bg-secondary)] overflow-auto p-2">
       <iframe
         key={refreshKey}
-        src={previewUrl ?? undefined}
+        src={previewUrl}
         className="bg-white rounded-lg"
         style={style}
         sandbox="allow-scripts allow-same-origin"
         title="Preview"
       />
+    </div>
+  );
+}
+
+function BrowserIllustration() {
+  return (
+    <div className="flex justify-center">
+      <svg
+        width="64"
+        height="56"
+        viewBox="0 0 64 56"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        style={{ opacity: 0.18 }}
+      >
+        {/* Window frame */}
+        <rect x="1" y="1" width="62" height="54" rx="6" stroke="var(--text-muted)" strokeWidth="1.5" />
+        {/* Top bar */}
+        <line x1="1" y1="14" x2="63" y2="14" stroke="var(--text-muted)" strokeWidth="1.5" />
+        {/* Traffic dots */}
+        <circle cx="11" cy="7.5" r="2.5" fill="var(--text-muted)" />
+        <circle cx="20" cy="7.5" r="2.5" fill="var(--text-muted)" />
+        <circle cx="29" cy="7.5" r="2.5" fill="var(--text-muted)" />
+        {/* URL bar */}
+        <rect x="36" y="4" width="22" height="7" rx="3.5" fill="var(--text-muted)" fillOpacity="0.4" />
+        {/* Content placeholder lines */}
+        <rect x="8" y="22" width="28" height="3" rx="1.5" fill="var(--text-muted)" />
+        <rect x="8" y="29" width="48" height="3" rx="1.5" fill="var(--text-muted)" fillOpacity="0.6" />
+        <rect x="8" y="36" width="40" height="3" rx="1.5" fill="var(--text-muted)" fillOpacity="0.4" />
+        <rect x="8" y="43" width="20" height="3" rx="1.5" fill="var(--text-muted)" fillOpacity="0.3" />
+      </svg>
     </div>
   );
 }
