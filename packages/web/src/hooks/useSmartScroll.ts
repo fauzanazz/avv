@@ -34,6 +34,7 @@ export function useSmartScroll(deps: unknown[] = []) {
     if (!userScrolledUp.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
+    // Deps are passed dynamically by the caller to trigger auto-scroll on content changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

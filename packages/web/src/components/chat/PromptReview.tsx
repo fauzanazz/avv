@@ -92,6 +92,7 @@ export function PromptReview({
               <button
                 onClick={() => toggleAgent(agent)}
                 aria-expanded={expandedAgents.has(agent)}
+                aria-label={`Toggle ${AGENT_LABELS[agent] ?? agent} details`}
                 className="w-full px-4 py-1.5 flex items-center gap-2 text-xs hover:bg-[var(--bg-elevated)]/30 transition-colors"
               >
                 <span className="text-[10px]" aria-hidden="true">
@@ -121,7 +122,7 @@ export function PromptReview({
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
             aria-label="Edit prompt content"
-            className="w-full h-64 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded p-3 text-xs text-[var(--text-secondary)] font-mono resize-y focus:outline-none focus:border-[var(--border-default)]"
+            className="w-full h-64 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded p-3 text-xs text-[var(--text-secondary)] font-mono resize-y focus:outline-none focus:border-[var(--accent-secondary)]"
           />
         ) : (
           <pre className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto">

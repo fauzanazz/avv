@@ -15,6 +15,7 @@ export function ThinkingStep({ content }: ThinkingStepProps) {
       className="cursor-pointer group text-left w-full"
       onClick={() => setExpanded(!expanded)}
       aria-expanded={expanded}
+      aria-label="Thinking step"
     >
       <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
         <svg

@@ -63,8 +63,8 @@ export function MessageList({
               <MarkdownContent content={streaming.text} isStreaming />
             )}
             {!streaming.text && streaming.toolCalls.length === 0 && streaming.thinkingSteps.length === 0 && (
-              <div className="flex items-center gap-2.5 text-xs text-[var(--text-muted)] py-1">
-                <span className="flex gap-1">
+              <div className="flex items-center gap-2.5 text-xs text-[var(--text-muted)] py-1" role="status" aria-label="Loading response">
+                <span className="flex gap-1" aria-hidden="true">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "0ms" }} />
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "200ms" }} />
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] animate-pulse-soft" style={{ animationDelay: "400ms" }} />
