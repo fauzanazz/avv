@@ -1,8 +1,9 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 
 const BOTTOM_THRESHOLD = 100;
+const EMPTY_DEPS: unknown[] = [];
 
-export function useSmartScroll(deps: unknown[] = []) {
+export function useSmartScroll(deps: unknown[] = EMPTY_DEPS) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
