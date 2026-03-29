@@ -58,8 +58,8 @@ export function SettingsModal({
 
             {githubStatus.connected ? (
               <div className="flex items-center gap-2 py-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-[var(--status-success)]" />
+                <span className="text-xs text-[var(--status-success)]">
                   Connected as {githubStatus.username}
                 </span>
               </div>
@@ -71,6 +71,7 @@ export function SettingsModal({
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder="ghp_..."
+                    aria-label="GitHub Personal Access Token"
                     className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-xl px-3 py-2 pr-16 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--text-muted)] font-mono transition-colors"
                   />
                   <button
@@ -88,7 +89,7 @@ export function SettingsModal({
                   Connect
                 </button>
                 {githubStatus.error && (
-                  <p className="text-[11px] text-red-400">{githubStatus.error}</p>
+                  <p className="text-[11px] text-[var(--status-error)]">{githubStatus.error}</p>
                 )}
               </div>
             )}

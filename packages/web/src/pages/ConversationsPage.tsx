@@ -27,7 +27,7 @@ export function ConversationsPage({
         <h1 className="text-sm font-semibold tracking-wide text-[var(--text-secondary)]">AVV</h1>
         <div className="flex items-center gap-1.5">
           {!isConnected && (
-            <span className="text-[11px] text-amber-500/60 mr-2">Connecting...</span>
+            <span className="text-[11px] text-[var(--status-warning)]/60 mr-2" role="status">Connecting...</span>
           )}
           <button
             onClick={onOpenSettings}
@@ -105,6 +105,7 @@ function ConversationRow({
           const newTitle = prompt("Rename conversation:", conversation.title);
           if (newTitle?.trim()) onRename(newTitle.trim());
         }}
+        aria-label="Rename conversation"
         className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xs px-1.5 transition-opacity"
       >
         edit
@@ -114,7 +115,8 @@ function ConversationRow({
           e.stopPropagation();
           onDelete();
         }}
-        className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 text-xs px-1.5 transition-opacity"
+        aria-label="Delete conversation"
+        className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--status-error)] text-xs px-1.5 transition-opacity"
       >
         {"\u00D7"}
       </button>
