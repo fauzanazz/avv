@@ -8,8 +8,8 @@ interface ToastProps {
 }
 
 const COLORS = {
-  error: "bg-red-950/90 text-red-200 border-red-900/50",
-  success: "bg-emerald-950/90 text-emerald-200 border-emerald-900/50",
+  error: "bg-[var(--status-error)]/10 text-[var(--status-error)] border-[var(--status-error)]/20",
+  success: "bg-[var(--status-success)]/10 text-[var(--status-success)] border-[var(--status-success)]/20",
   info: "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]",
 };
 

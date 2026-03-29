@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
+const MAX_TEXTAREA_HEIGHT = 200;
+
 interface ChatInputProps {
   onSend: (message: string) => void;
   onCancel: () => void;
@@ -22,7 +24,7 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
     const el = textareaRef.current;
     if (el) {
       el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      el.style.height = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT) + "px";
     }
   }, [value]);
 
@@ -49,6 +51,7 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
               }
             }}
             placeholder="Describe what you want to build..."
+            aria-label="Message input"
             disabled={disabled}
             rows={1}
             className="w-full bg-transparent px-4 py-3 pr-14 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none resize-none disabled:opacity-50"
@@ -57,10 +60,10 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
             {isStreaming ? (
               <button
                 onClick={onCancel}
-                className="p-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
-                title="Stop generating"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-[var(--status-error)] hover:bg-[var(--status-error)]/10 transition-colors"
+                aria-label="Stop generating"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                   <rect x="3" y="3" width="10" height="10" rx="2" />
                 </svg>
               </button>
@@ -68,10 +71,10 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
               <button
                 onClick={handleSubmit}
                 disabled={!value.trim() || disabled}
-                className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                title="Send message"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                aria-label="Send message"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14 2L2 8.5L7 9.5L8.5 14.5L14 2Z" />
                 </svg>
               </button>

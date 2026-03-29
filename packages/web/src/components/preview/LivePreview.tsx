@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { SandboxProgressStep } from "../../hooks/useChat";
 
 type Viewport = "mobile" | "tablet" | "desktop";
@@ -9,6 +9,8 @@ const VIEWPORTS: Record<Viewport, { width: string; label: string }> = {
   desktop: { width: "100%", label: "Desktop" },
 };
 
+const VIEWPORT_ENTRIES = Object.entries(VIEWPORTS) as [Viewport, { width: string; label: string }][];
+
 const STEP_LABELS: Record<string, string> = {
   boot: "Booting sandbox",
   upload: "Uploading template",
@@ -16,6 +18,8 @@ const STEP_LABELS: Record<string, string> = {
   connect: "Connecting preview",
   vite: "Starting dev server",
 };
+
+const DEBOUNCE_MS = 500;
 
 interface LivePreviewProps {
   files: Map<string, string>;
@@ -30,7 +34,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const prevTriggerRef = useRef(refreshTrigger);
 
-  // Debounced auto-refresh when files change (500ms)
+  // Debounced auto-refresh when files change
   useEffect(() => {
     if (refreshTrigger === prevTriggerRef.current) return;
     prevTriggerRef.current = refreshTrigger;
@@ -38,7 +42,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setRefreshKey((k) => k + 1);
-    }, 500);
+    }, DEBOUNCE_MS);
 
     return () => clearTimeout(debounceRef.current);
   }, [refreshTrigger]);
@@ -63,7 +67,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
                     : s.status === "done"
                       ? "text-[var(--text-muted)]"
                       : s.status === "error"
-                        ? "text-red-400"
+                        ? "text-[var(--status-error)]"
                         : "text-[var(--text-muted)] opacity-40"
                 }`}
               >
@@ -72,7 +76,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
             </div>
           ))}
           {sandboxProgress.some((s) => s.status === "error") && (
-            <p className="text-[10px] text-red-400/70 mt-2">
+            <p className="text-[10px] text-[var(--status-error)]/70 mt-2">
               {sandboxProgress.find((s) => s.status === "error")?.error}
             </p>
           )}
@@ -87,7 +91,7 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-2">
-          <div className="text-2xl text-[var(--text-muted)] opacity-20">{"\u25B6"}</div>
+          <div className="text-2xl text-[var(--text-muted)] opacity-20" aria-hidden="true">{"\u25B6"}</div>
           <p className="text-xs text-[var(--text-muted)]">Preview will appear here</p>
         </div>
       </div>
@@ -100,12 +104,12 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
     <div className="flex-1 flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-subtle)]">
-        {(Object.entries(VIEWPORTS) as [Viewport, { width: string; label: string }][]).map(
+        {VIEWPORT_ENTRIES.map(
           ([key, { label }]) => (
             <button
               key={key}
               onClick={() => setViewport(key)}
-              className={`text-[10px] px-2 py-0.5 rounded-md transition-colors ${
+              className={`text-[10px] min-h-[44px] px-3 py-1 rounded-md transition-colors ${
                 viewport === key
                   ? "bg-[var(--bg-surface)] text-[var(--text-secondary)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-tertiary)]"
@@ -117,28 +121,36 @@ export function LivePreview({ files, previewUrl, refreshTrigger = 0, sandboxProg
         )}
         <button
           onClick={() => setRefreshKey((k) => k + 1)}
-          className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] ml-auto px-2 py-0.5 transition-colors"
+          className="text-[10px] min-h-[44px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] ml-auto px-3 py-1 transition-colors"
         >
           Refresh
         </button>
       </div>
 
       {/* Iframe */}
-      <div className="flex-1 flex justify-center bg-[var(--bg-secondary)] overflow-auto p-2">
-        <iframe
-          key={refreshKey}
-          src={previewUrl ?? undefined}
-          className="bg-white rounded-lg"
-          style={{
-            width,
-            height: "100%",
-            maxWidth: "100%",
-            border: "none",
-          }}
-          sandbox="allow-scripts allow-same-origin"
-          title="Preview"
-        />
-      </div>
+      <IframePreview width={width} refreshKey={refreshKey} previewUrl={previewUrl} />
+    </div>
+  );
+}
+
+function IframePreview({ width, refreshKey, previewUrl }: { width: string; refreshKey: number; previewUrl: string | null }) {
+  const style = useMemo(() => ({
+    width,
+    height: "100%" as const,
+    maxWidth: "100%" as const,
+    border: "none" as const,
+  }), [width]);
+
+  return (
+    <div className="flex-1 flex justify-center bg-[var(--bg-secondary)] overflow-auto p-2">
+      <iframe
+        key={refreshKey}
+        src={previewUrl ?? undefined}
+        className="bg-white rounded-lg"
+        style={style}
+        sandbox="allow-scripts allow-same-origin"
+        title="Preview"
+      />
     </div>
   );
 }
@@ -148,23 +160,23 @@ function StepIndicator({ status }: { status: string }) {
   switch (status) {
     case "done":
       return (
-        <svg className={`${base} text-emerald-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <svg className={`${base} text-[var(--status-success)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
           <path d="M4 8.5l2.5 2.5 5.5-5.5" />
         </svg>
       );
     case "running":
       return (
-        <svg className={`${base} text-[var(--text-secondary)] animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className={`${base} text-[var(--text-secondary)] animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="8" cy="8" r="6" strokeDasharray="28" strokeDashoffset="8" strokeLinecap="round" />
         </svg>
       );
     case "error":
       return (
-        <svg className={`${base} text-red-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <svg className={`${base} text-[var(--status-error)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
           <path d="M5 5l6 6M11 5l-6 6" />
         </svg>
       );
     default:
-      return <span className={`${base} inline-flex items-center justify-center text-[var(--text-muted)] opacity-30 text-[8px]`}>{"\u2022"}</span>;
+      return <span className={`${base} inline-flex items-center justify-center text-[var(--text-muted)] opacity-30 text-[8px]`} aria-hidden="true">{"\u2022"}</span>;
   }
 }

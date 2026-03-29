@@ -9,9 +9,12 @@ export function ToolCallStep({ toolCall }: ToolCallStepProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div
-      className="cursor-pointer group"
+    <button
+      type="button"
+      className="cursor-pointer group text-left w-full"
       onClick={() => setExpanded(!expanded)}
+      aria-expanded={expanded}
+      aria-label={`${toolCall.tool || "tool"} — ${toolCall.status}`}
     >
       <div className="flex items-center gap-2 text-xs">
         <StatusIcon status={toolCall.status} />
@@ -19,7 +22,7 @@ export function ToolCallStep({ toolCall }: ToolCallStepProps) {
           {toolCall.tool || "tool"}
         </span>
         {toolCall.status === "running" && (
-          <span className="text-blue-400/50 text-[11px] animate-pulse-soft">running</span>
+          <span className="text-[var(--status-running)]/50 text-[11px] animate-pulse-soft">running</span>
         )}
       </div>
       {expanded && (
@@ -36,7 +39,7 @@ export function ToolCallStep({ toolCall }: ToolCallStepProps) {
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -45,25 +48,25 @@ function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "running":
       return (
-        <svg className={`${base} text-blue-400 animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className={`${base} text-[var(--status-running)] animate-spin`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="8" cy="8" r="6" strokeDasharray="28" strokeDashoffset="8" strokeLinecap="round" />
         </svg>
       );
     case "completed":
       return (
-        <svg className={`${base} text-emerald-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg className={`${base} text-[var(--status-success)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <path d="M4 8.5l2.5 2.5 5.5-5.5" />
         </svg>
       );
     case "error":
       return (
-        <svg className={`${base} text-red-400`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg className={`${base} text-[var(--status-error)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <path d="M5 5l6 6M11 5l-6 6" />
         </svg>
       );
     default:
       return (
-        <svg className={`${base} text-[var(--text-muted)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className={`${base} text-[var(--text-muted)]`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="8" cy="8" r="4" />
         </svg>
       );
