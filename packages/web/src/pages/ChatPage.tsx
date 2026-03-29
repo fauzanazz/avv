@@ -61,21 +61,27 @@ export function ChatPage({
           onClick={() => navigate("/")}
           className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         >
-          {"\u2190"} Back
+          {"\u2190"} Conversations
         </button>
-        <span className="text-xs text-[var(--border-default)]">|</span>
-        <button
-          onClick={() => setMobileTab("chat")}
-          className={`text-xs transition-colors ${mobileTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
-        >
-          Chat
-        </button>
-        <button
-          onClick={() => setMobileTab("preview")}
-          className={`text-xs transition-colors ${mobileTab === "preview" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
-        >
-          Preview
-        </button>
+        <span className="text-xs text-[var(--border-default)]" aria-hidden="true">|</span>
+        <div role="tablist" className="flex items-center gap-3">
+          <button
+            role="tab"
+            aria-selected={mobileTab === "chat"}
+            onClick={() => setMobileTab("chat")}
+            className={`text-xs transition-colors ${mobileTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
+          >
+            Chat
+          </button>
+          <button
+            role="tab"
+            aria-selected={mobileTab === "preview"}
+            onClick={() => setMobileTab("preview")}
+            className={`text-xs transition-colors ${mobileTab === "preview" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
+          >
+            Preview
+          </button>
+        </div>
       </div>
 
       {/* Chat panel */}
@@ -86,7 +92,7 @@ export function ChatPage({
             onClick={() => navigate("/")}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
           >
-            {"\u2190"} Back
+            {"\u2190"} Conversations
           </button>
         </div>
         <ChatPanel

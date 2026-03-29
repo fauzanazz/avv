@@ -40,7 +40,7 @@ export function ChatPanel({
               in a sandboxed environment with live preview.
             </p>
             {!isConnected && (
-              <p className="text-xs text-amber-500/70 mt-2">Connecting to server...</p>
+              <p className="text-xs text-[var(--status-warning)]/70 mt-2" role="status">Connecting to server...</p>
             )}
           </div>
         </div>

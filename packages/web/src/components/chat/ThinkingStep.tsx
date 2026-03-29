@@ -10,9 +10,11 @@ export function ThinkingStep({ content }: ThinkingStepProps) {
   const preview = content.length > 120 ? content.slice(0, 120) + "\u2026" : content;
 
   return (
-    <div
-      className="cursor-pointer group"
+    <button
+      type="button"
+      className="cursor-pointer group text-left w-full"
       onClick={() => setExpanded(!expanded)}
+      aria-expanded={expanded}
     >
       <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
         <svg
@@ -21,10 +23,11 @@ export function ThinkingStep({ content }: ThinkingStepProps) {
           viewBox="0 0 16 16"
           stroke="currentColor"
           strokeWidth="2"
+          aria-hidden="true"
         >
           <path d="M6 4l4 4-4 4" />
         </svg>
-        <span className="text-amber-500/60 text-[11px]">Thinking</span>
+        <span className="text-[var(--status-warning)] text-[11px]">Thinking</span>
       </div>
       {expanded ? (
         <pre className="mt-1.5 ml-5 text-xs text-[var(--text-tertiary)] whitespace-pre-wrap font-mono leading-relaxed bg-[var(--bg-secondary)] rounded-lg p-3">
@@ -35,6 +38,6 @@ export function ThinkingStep({ content }: ThinkingStepProps) {
           {preview}
         </p>
       )}
-    </div>
+    </button>
   );
 }

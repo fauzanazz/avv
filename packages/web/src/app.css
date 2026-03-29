@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "streamdown/styles.css";
 
 html, body, #root {
   margin: 0;
@@ -22,6 +23,10 @@ html, body, #root {
   --text-muted: #62626d;
   --accent-primary: #d4a574;
   --accent-secondary: #a8845c;
+  --status-running: #60a5fa;
+  --status-success: #34d399;
+  --status-error: #f87171;
+  --status-warning: #d4a574;
 }
 
 body {
@@ -42,12 +47,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a3a40;
+  background: var(--border-default);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a50;
+  background: var(--bg-surface);
 }
 
 @keyframes fade-in {
@@ -84,5 +89,5 @@ body {
 
 /* Input glow effect */
 .input-glow:focus-within {
-  box-shadow: 0 0 0 1px rgba(212, 165, 116, 0.15), 0 2px 12px rgba(212, 165, 116, 0.06);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 15%, transparent), 0 2px 12px color-mix(in srgb, var(--accent-primary) 6%, transparent);
 }
