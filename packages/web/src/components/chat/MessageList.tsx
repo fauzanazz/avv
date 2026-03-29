@@ -2,8 +2,9 @@ import { useRef, useEffect, memo } from "react";
 import type { Message } from "@avv/shared";
 import type { StreamingState, PendingPrompt } from "../../hooks/useChat";
 import { useSmartScroll } from "../../hooks/useSmartScroll";
-import { ThinkingStep } from "./ThinkingStep";
-import { ToolCallStep } from "./ToolCallStep";
+import { ThinkingIndicator } from "./ThinkingIndicator";
+import { ThinkingLive } from "./ThinkingLive";
+import { ToolCallProgress } from "./ToolCallProgress";
 import { PromptReview } from "./PromptReview";
 import { MarkdownContent } from "./MarkdownContent";
 import { formatTime } from "../../utils/formatTime";
@@ -53,12 +54,15 @@ export function MessageList({
             <time dateTime={new Date(streamingStartTime.current || Date.now()).toISOString()} className="text-[10px] text-[var(--text-muted)]">
               {formatTime(streamingStartTime.current || Date.now())}
             </time>
-            {streaming.thinkingSteps.map((step, i) => (
-              <ThinkingStep key={i} content={step.content} />
-            ))}
-            {streaming.toolCalls.map((tc) => (
-              <ToolCallStep key={tc.id} toolCall={tc} />
-            ))}
+            {streaming.thinkingSteps.length > 0 && !streaming.text && streaming.toolCalls.length === 0 && (
+              <ThinkingLive />
+            )}
+            {streaming.thinkingSteps.length > 0 && (streaming.text || streaming.toolCalls.length > 0) && (
+              <ThinkingIndicator steps={streaming.thinkingSteps} />
+            )}
+            {streaming.toolCalls.length > 0 && (
+              <ToolCallProgress toolCalls={streaming.toolCalls} isStreaming={true} />
+            )}
             {streaming.text && (
               <MarkdownContent content={streaming.text} isStreaming />
             )}
@@ -138,12 +142,12 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Messag
   return (
     <div className="space-y-2">
       {timestamp}
-      {message.metadata?.thinkingSteps?.map((step, i) => (
-        <ThinkingStep key={i} content={step.content} />
-      ))}
-      {message.metadata?.toolCalls?.map((tc) => (
-        <ToolCallStep key={tc.id} toolCall={tc} />
-      ))}
+      {message.metadata?.thinkingSteps && message.metadata.thinkingSteps.length > 0 && (
+        <ThinkingIndicator steps={message.metadata.thinkingSteps} />
+      )}
+      {message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
+        <ToolCallProgress toolCalls={message.metadata.toolCalls} isStreaming={false} />
+      )}
       {message.content && (
         <MarkdownContent content={message.content} />
       )}

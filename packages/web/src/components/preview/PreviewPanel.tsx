@@ -22,7 +22,7 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, 
   const selectedContent = selectedFile ? fileContents.get(selectedFile) : null;
 
   return (
-    <aside className="w-full md:w-[480px] md:min-w-[320px] border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]">
+    <aside className="w-full flex-1 border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]">
       {/* Tabs */}
       <div className="border-b border-[var(--border-subtle)] flex px-2" role="tablist">
         <TabButton

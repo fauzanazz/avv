@@ -92,7 +92,20 @@ body {
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
 
+/* Preview empty state gradient */
+.preview-empty-bg {
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--bg-elevated) 40%, transparent) 0%, var(--bg-primary) 70%);
+}
+
 /* Input glow effect */
+.input-glow {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
 .input-glow:focus-within {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 15%, transparent), 0 2px 12px color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-primary) 25%, transparent),
+    0 0 20px color-mix(in srgb, var(--accent-primary) 8%, transparent),
+    0 4px 16px color-mix(in srgb, var(--accent-primary) 5%, transparent);
 }
