@@ -24,7 +24,7 @@ export function PreviewPanel({ files, fileContents, previewUrl, refreshTrigger, 
   return (
     <aside className="w-full md:w-[480px] md:min-w-[320px] border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-primary)]">
       {/* Tabs */}
-      <div className="border-b border-[var(--border-subtle)] flex px-2">
+      <div className="border-b border-[var(--border-subtle)] flex px-2" role="tablist">
         <TabButton
           label="Preview"
           active={activeTab === "preview"}
@@ -84,7 +84,9 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-1.5 relative ${
+      role="tab"
+      aria-selected={active}
+      className={`px-4 min-h-[44px] text-xs font-medium transition-colors flex items-center gap-1.5 relative ${
         active
           ? "text-[var(--text-primary)]"
           : "text-[var(--text-muted)] hover:text-[var(--text-tertiary)]"

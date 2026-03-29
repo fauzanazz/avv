@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect, memo } from "react";
 import type { Message } from "@avv/shared";
 import type { StreamingState, PendingPrompt } from "../../hooks/useChat";
 import { useSmartScroll } from "../../hooks/useSmartScroll";
@@ -23,15 +23,15 @@ export function MessageList({
   onPromptEdit,
   onPromptApprove,
 }: MessageListProps) {
-  const streamingStartTime = useRef<number>(Date.now());
+  const streamingStartTime = useRef<number>(0);
 
-  // Capture start time once when streaming begins
-  if (streaming.isStreaming && streamingStartTime.current === 0) {
-    streamingStartTime.current = Date.now();
-  }
-  if (!streaming.isStreaming) {
-    streamingStartTime.current = 0;
-  }
+  useEffect(() => {
+    if (streaming.isStreaming && streamingStartTime.current === 0) {
+      streamingStartTime.current = Date.now();
+    } else if (!streaming.isStreaming) {
+      streamingStartTime.current = 0;
+    }
+  }, [streaming.isStreaming]);
 
   const { containerRef, bottomRef, isAtBottom, scrollToBottom } = useSmartScroll([
     messages.length,
@@ -116,7 +116,7 @@ export function MessageList({
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+const MessageBubble = memo(function MessageBubble({ message }: { message: Message }) {
   const timestamp = (
     <time dateTime={new Date(message.createdAt).toISOString()} className="text-[10px] text-[var(--text-muted)]">
       {formatTime(message.createdAt)}
@@ -149,4 +149,4 @@ function MessageBubble({ message }: { message: Message }) {
       )}
     </div>
   );
-}
+});

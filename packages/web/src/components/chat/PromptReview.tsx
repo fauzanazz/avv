@@ -17,11 +17,11 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  "design-engineer": "text-purple-400",
-  "ux-engineer": "text-blue-400",
-  "animation-engineer": "text-cyan-400",
-  "artist-engineer": "text-pink-400",
-  "typewriter": "text-green-400",
+  "design-engineer": "text-[var(--agent-design)]",
+  "ux-engineer": "text-[var(--agent-ux)]",
+  "animation-engineer": "text-[var(--agent-animation)]",
+  "artist-engineer": "text-[var(--agent-artist)]",
+  "typewriter": "text-[var(--agent-typewriter)]",
 };
 
 export function PromptReview({
@@ -122,7 +122,7 @@ export function PromptReview({
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
             aria-label="Edit prompt content"
-            className="w-full h-64 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded p-3 text-xs text-[var(--text-secondary)] font-mono resize-y focus:outline-none focus:border-[var(--accent-secondary)]"
+            className="w-full h-64 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded p-3 text-xs text-[var(--text-secondary)] font-mono resize-y focus:outline-none focus:border-[var(--accent-secondary)] focus:ring-1 focus:ring-[var(--accent-secondary)]"
           />
         ) : (
           <pre className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto">

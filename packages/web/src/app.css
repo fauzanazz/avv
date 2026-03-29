@@ -27,6 +27,11 @@ html, body, #root {
   --status-success: #34d399;
   --status-error: #f87171;
   --status-warning: #d4a574;
+  --agent-design: #c4b5fd;
+  --agent-ux: #93c5fd;
+  --agent-animation: #67e8f9;
+  --agent-artist: #f9a8d4;
+  --agent-typewriter: #6ee7b7;
 }
 
 body {

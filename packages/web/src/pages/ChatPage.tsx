@@ -60,6 +60,7 @@ export function ChatPage({
         <button
           onClick={() => navigate("/")}
           className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+          aria-label="Back to conversations"
         >
           {"\u2190"} Conversations
         </button>

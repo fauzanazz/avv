@@ -17,7 +17,7 @@ export function FileTree({ files, selectedPath, onSelect }: FileTreeProps) {
   }
 
   return (
-    <div className="py-1 text-xs font-mono">
+    <div className="py-1 text-xs font-mono" role="tree">
       {files.map((entry) => (
         <FileNode
           key={entry.path}
@@ -47,17 +47,26 @@ function FileNode({
 
   if (entry.isDirectory) {
     return (
-      <div>
-        <div
-          className="flex items-center gap-1.5 px-2 py-1 cursor-pointer hover:bg-[var(--bg-secondary)] text-[var(--text-tertiary)] transition-colors"
+      <div role="treeitem" aria-expanded={expanded}>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 w-full min-h-[44px] px-2 py-1 cursor-pointer hover:bg-[var(--bg-secondary)] text-[var(--text-tertiary)] transition-colors text-left"
           style={{ paddingLeft: depth * 16 + 8 }}
           onClick={() => setExpanded(!expanded)}
+          aria-label={`${entry.name} folder`}
         >
-          <svg className={`w-3 h-3 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2">
+          <svg
+            className={`w-3 h-3 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 16 16"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
             <path d="M6 4l4 4-4 4" />
           </svg>
-          <span className="text-blue-400/60">{entry.name}</span>
-        </div>
+          <span className="text-[var(--accent-primary)]/70">{entry.name}</span>
+        </button>
         {expanded && entry.children?.map((child) => (
           <FileNode
             key={child.path}
@@ -72,18 +81,22 @@ function FileNode({
   }
 
   return (
-    <div
-      className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-colors ${
+    <button
+      type="button"
+      role="treeitem"
+      aria-selected={isSelected}
+      className={`flex items-center gap-1.5 w-full min-h-[44px] px-2 py-1 cursor-pointer transition-colors text-left ${
         isSelected
           ? "bg-[var(--bg-elevated)] text-[var(--text-primary)]"
           : "text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-secondary)]"
       }`}
       style={{ paddingLeft: depth * 16 + 24 }}
       onClick={() => onSelect(entry.path)}
+      aria-label={`Select ${entry.name}`}
     >
       <FileIcon name={entry.name} />
       <span className="truncate">{entry.name}</span>
-    </div>
+    </button>
   );
 }
 
@@ -94,25 +107,25 @@ function FileIcon({ name }: { name: string }) {
   switch (ext) {
     case "ts":
     case "tsx":
-      color = "text-blue-400/70";
+      color = "text-[var(--status-running)]";
       break;
     case "js":
     case "jsx":
-      color = "text-yellow-400/70";
+      color = "text-[var(--accent-primary)]";
       break;
     case "css":
-      color = "text-purple-400/70";
+      color = "text-[var(--accent-secondary)]";
       break;
     case "html":
-      color = "text-orange-400/70";
+      color = "text-[var(--status-warning)]";
       break;
     case "json":
-      color = "text-emerald-400/70";
+      color = "text-[var(--status-success)]";
       break;
     case "md":
       color = "text-[var(--text-muted)]";
       break;
   }
 
-  return <span className={`${color} text-[9px]`}>{"\u25CF"}</span>;
+  return <span className={`${color} text-[9px]`} aria-hidden="true">{"\u25CF"}</span>;
 }

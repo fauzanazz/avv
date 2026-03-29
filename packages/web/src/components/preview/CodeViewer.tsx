@@ -50,6 +50,7 @@ function CopyButton({ content }: { content: string }) {
   return (
     <button
       onClick={handleCopy}
+      aria-label="Copy code to clipboard"
       className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-tertiary)] transition-colors ml-auto"
     >
       Copy

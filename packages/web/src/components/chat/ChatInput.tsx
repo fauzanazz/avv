@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
+const MAX_TEXTAREA_HEIGHT = 200;
+
 interface ChatInputProps {
   onSend: (message: string) => void;
   onCancel: () => void;
@@ -22,7 +24,7 @@ export function ChatInput({ onSend, onCancel, isStreaming, disabled }: ChatInput
     const el = textareaRef.current;
     if (el) {
       el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      el.style.height = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT) + "px";
     }
   }, [value]);
 
