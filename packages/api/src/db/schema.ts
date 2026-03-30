@@ -46,3 +46,12 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(), // JSON string
 });
+
+export const sandboxes = sqliteTable("sandboxes", {
+  conversationId: text("conversation_id")
+    .primaryKey()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  sandboxId: text("sandbox_id").notNull(),
+  hostPort: integer("host_port").notNull(),
+  createdAt: integer("created_at", { mode: "number" }).notNull(),
+});

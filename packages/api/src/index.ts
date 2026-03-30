@@ -7,7 +7,7 @@ import type { WSData } from "./store";
 import { validatePrompts } from "./agents/prompt-loader";
 import { initDb } from "./db";
 import { getDevServerPort, stopAllDevServers } from "./chat/dev-server";
-import { destroyAllSandboxes, getSandboxPreviewUrl, startIdleCleanup, stopIdleCleanup } from "./chat/sandbox-manager";
+import { destroyAllSandboxes, getSandboxPreviewUrl, reconcileSandboxes, startIdleCleanup, stopIdleCleanup } from "./chat/sandbox-manager";
 import { storage } from "./storage";
 
 initDb();
@@ -90,10 +90,7 @@ app.all("/preview/:conversationId/*", async (c) => {
   }
 
   // 3. Fallback: serve from storage (R2 in prod, local in dev)
-  const staticPath = filePath.replace(/^\//, "");
-  if (!staticPath) {
-    return c.text("Not found", 404);
-  }
+  const staticPath = filePath.replace(/^\//, "") || "index.html";
 
   const content = await storage.getBuffer(conversationId, staticPath);
   if (!content) {
@@ -119,12 +116,15 @@ app.all("/preview/:conversationId/*", async (c) => {
     ttf: "font/ttf",
   };
 
-  return new Response(Buffer.from(content), {
+  const mime = mimeTypes[ext ?? ""] ?? "application/octet-stream";
+  const raw = new Response(Buffer.from(content), {
     headers: {
-      "Content-Type": mimeTypes[ext ?? ""] ?? "application/octet-stream",
+      "Content-Type": mime,
       "Cache-Control": "no-cache",
     },
   });
+
+  return rewriteResponse(raw);
 });
 
 const parsed = Number(process.env.PORT);
@@ -151,8 +151,10 @@ Bun.serve<WSData>({
 console.log(`AVV API running on http://localhost:${port}`);
 console.log(`WebSocket available at ws://localhost:${port}/ws`);
 
-// Start idle sandbox cleanup sweep
-startIdleCleanup();
+// Reconcile persisted sandboxes with the AgentBox server, then start idle cleanup
+reconcileSandboxes()
+  .catch((err) => console.warn("[Sandbox] Reconciliation failed:", err))
+  .finally(() => startIdleCleanup());
 
 // Clean up on shutdown
 process.on("SIGINT", async () => {

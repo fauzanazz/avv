@@ -3,6 +3,8 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative } from "path";
 import type { SandboxStep, SandboxStepStatus } from "@avv/shared";
 import { storage } from "../storage";
+import { db, schema } from "../db";
+import { eq } from "drizzle-orm";
 
 const AGENTBOX_URL = process.env.AGENTBOX_URL ?? "http://178.128.214.76:8080";
 const TEMPLATE_DIR = join(import.meta.dir, "../../template");
@@ -17,6 +19,84 @@ interface SandboxSession {
 }
 
 const activeSandboxes = new Map<string, SandboxSession>();
+
+// ── Persistence helpers ────────────────────────────────────────
+
+function persistSandbox(conversationId: string, sandboxId: string, hostPort: number): void {
+  try {
+    db.insert(schema.sandboxes)
+      .values({ conversationId, sandboxId, hostPort, createdAt: Date.now() })
+      .onConflictDoUpdate({
+        target: schema.sandboxes.conversationId,
+        set: { sandboxId, hostPort, createdAt: Date.now() },
+      })
+      .run();
+  } catch (err) {
+    // FK constraint fails if conversation doesn't exist yet — non-fatal
+    console.warn(`[Sandbox] Failed to persist sandbox for ${conversationId}:`, err);
+  }
+}
+
+function unpersistSandbox(conversationId: string): void {
+  db.delete(schema.sandboxes).where(eq(schema.sandboxes.conversationId, conversationId)).run();
+}
+
+/**
+ * Reconcile persisted sandbox records with the AgentBox server on startup.
+ * - Reconnects to sandboxes that are still alive
+ * - Cleans up DB rows for dead sandboxes
+ * - Destroys orphaned sandboxes on the server that have no DB record
+ */
+export async function reconcileSandboxes(): Promise<void> {
+  if (!(await isAgentBoxAvailable())) {
+    console.log("[Sandbox] AgentBox not available — skipping reconciliation");
+    return;
+  }
+
+  const persisted = db.select().from(schema.sandboxes).all();
+  const remoteSandboxes = await Sandbox.list({ url: AGENTBOX_URL });
+  const remoteIds = new Set(remoteSandboxes.map((s) => s.id));
+  const persistedIds = new Set(persisted.map((r) => r.sandboxId));
+
+  // Reconnect to persisted sandboxes that are still alive on the server
+  let reconnected = 0;
+  for (const row of persisted) {
+    if (remoteIds.has(row.sandboxId)) {
+      const sandbox = Sandbox.connect(row.sandboxId, { url: AGENTBOX_URL });
+      try {
+        const result = await sandbox.exec("echo ok", 5);
+        if (result.exit_code === 0) {
+          activeSandboxes.set(row.conversationId, {
+            sandbox,
+            hostPort: row.hostPort,
+            conversationId: row.conversationId,
+            lastActivity: Date.now(),
+          });
+          reconnected++;
+          continue;
+        }
+      } catch { /* dead */ }
+      // Sandbox exists but is unresponsive — destroy it
+      await sandbox.destroy().catch(() => {});
+    }
+    // Dead or missing — clean up DB
+    unpersistSandbox(row.conversationId);
+  }
+
+  // Destroy orphaned sandboxes (on server but not in our DB)
+  let orphansDestroyed = 0;
+  for (const remote of remoteSandboxes) {
+    if (!persistedIds.has(remote.id)) {
+      const orphan = Sandbox.connect(remote.id, { url: AGENTBOX_URL });
+      await orphan.destroy().catch(() => {});
+      orphansDestroyed++;
+    }
+  }
+
+  console.log(
+    `[Sandbox] Reconciliation: ${reconnected} reconnected, ${persisted.length - reconnected} stale cleaned, ${orphansDestroyed} orphans destroyed`,
+  );
+}
 
 export type SandboxProgressCallback = (
   step: SandboxStep,
@@ -123,6 +203,7 @@ export async function createSandboxSession(
       lastActivity: Date.now(),
     };
     activeSandboxes.set(conversationId, session);
+    persistSandbox(conversationId, sandbox.id, forward.host_port);
 
     // Step 5: Start Vite (skipped during restore — files are uploaded first)
     if (startVite) {
@@ -136,6 +217,7 @@ export async function createSandboxSession(
   } catch (err) {
     // Clean up on failure
     activeSandboxes.delete(conversationId);
+    unpersistSandbox(conversationId);
     await sandbox.destroy().catch(() => {});
     throw err;
   }
@@ -213,8 +295,9 @@ export async function destroySandbox(conversationId: string): Promise<void> {
   const session = activeSandboxes.get(conversationId);
   if (!session) return;
 
-  // Delete from map first to prevent concurrent callers from acting on a stale session
+  // Delete from map + DB first to prevent concurrent callers from acting on a stale session
   activeSandboxes.delete(conversationId);
+  unpersistSandbox(conversationId);
 
   try {
     await session.sandbox.destroy();

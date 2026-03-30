@@ -14,6 +14,8 @@ export interface ConversationSummary {
 
 export type MessageRole = "user" | "assistant" | "system";
 
+export type MessageType = "prompt";
+
 export interface ThinkingStep {
   content: string;
   timestamp: number;
@@ -38,6 +40,10 @@ export interface MessageMetadata {
   thinkingSteps?: ThinkingStep[];
   toolCalls?: ToolCall[];
   agentActivity?: AgentActivity[];
+  type?: MessageType;
+  promptId?: string;
+  promptContent?: string;
+  agentsOutput?: import("./prompt").AgentOutput[];
 }
 
 export interface Message {

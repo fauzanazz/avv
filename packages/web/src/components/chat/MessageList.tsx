@@ -6,6 +6,7 @@ import { ThinkingIndicator } from "./ThinkingIndicator";
 import { ThinkingLive } from "./ThinkingLive";
 import { ToolCallProgress } from "./ToolCallProgress";
 import { PromptReview } from "./PromptReview";
+import { PromptCard } from "./PromptCard";
 import { MarkdownContent } from "./MarkdownContent";
 import { formatTime } from "../../utils/formatTime";
 
@@ -134,6 +135,19 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Messag
           {message.content}
         </div>
         {timestamp}
+      </div>
+    );
+  }
+
+  // Prompt card — read-only history view of generated prompts
+  if (message.metadata?.type === "prompt") {
+    return (
+      <div className="space-y-2">
+        {timestamp}
+        <PromptCard
+          content={message.metadata.promptContent ?? message.content}
+          agentsOutput={message.metadata.agentsOutput}
+        />
       </div>
     );
   }

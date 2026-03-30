@@ -1,6 +1,6 @@
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import type { ServerMessage, PromptBuilderAgent } from "@avv/shared";
-import { loadPrompt, loadSpecialist, loadAllSkills } from "../agents/prompt-loader";
+import { loadPrompt, loadSpecialist, loadSkills } from "../agents/prompt-loader";
 
 export interface PromptBuilderResult {
   mergedPrompt: string;
@@ -23,41 +23,39 @@ interface SpecialistConfig {
 }
 
 function getSpecialists(): SpecialistConfig[] {
-  const frontendSkills = loadAllSkills();
-
   return [
     {
       name: "design-engineer",
       label: "Design Engineer",
-      systemPrompt: loadSpecialist("design-engineer") + "\n\n## Reference Skills\n\n" + frontendSkills,
+      systemPrompt: loadSpecialist("design-engineer") + "\n\n## Reference Skills\n\n" + loadSkills("design-intent", "color-and-type", "quality-baseline"),
       taskPrompt: (req) =>
         `Analyze this project request and produce a detailed design system specification:\n\n"${req}"\n\nOutput ONLY the design system spec — colors, typography, spacing, shadows, visual identity. Be specific with hex values, font names, and sizes.`,
     },
     {
       name: "ux-engineer",
       label: "UX Engineer",
-      systemPrompt: loadSpecialist("ux-engineer") + "\n\n## Reference Skills\n\n" + frontendSkills,
+      systemPrompt: loadSpecialist("ux-engineer") + "\n\n## Reference Skills\n\n" + loadSkills("design-intent", "quality-baseline"),
       taskPrompt: (req) =>
         `Analyze this project request and produce a detailed layout specification:\n\n"${req}"\n\nOutput ONLY the layout spec — page sections, component hierarchy, responsive breakpoints, navigation structure. Be specific about HTML structure.`,
     },
     {
       name: "animation-engineer",
       label: "Animation Engineer",
-      systemPrompt: loadSpecialist("animation-engineer"),
+      systemPrompt: loadSpecialist("animation-engineer") + "\n\n## Reference Skills\n\n" + loadSkills("animation-craft", "quality-baseline"),
       taskPrompt: (req) =>
-        `Analyze this project request and produce animation specifications:\n\n"${req}"\n\nOutput ONLY animation specs — scroll animations, hover effects, transitions, entrance animations. Reference AOS attributes and CSS properties.`,
+        `Analyze this project request and produce animation specifications for a React + Framer Motion project:\n\n"${req}"\n\nOutput ONLY animation specs — scroll animations, hover effects, transitions, entrance/exit animations. Reference Framer Motion components, props, and hooks.`,
     },
     {
       name: "artist-engineer",
       label: "Artist Engineer",
-      systemPrompt: loadSpecialist("artist-engineer"),
+      systemPrompt: loadSpecialist("artist-engineer") + "\n\n## Reference Skills\n\n" + loadSkills("design-intent", "color-and-type", "quality-baseline"),
       taskPrompt: (req) =>
-        `Analyze this project request and produce visual asset specifications:\n\n"${req}"\n\nOutput ONLY asset specs — hero images, backgrounds, icons, illustrations. Provide detailed descriptions for image generation.`,
+        `Analyze this project request and produce visual asset specifications:\n\n"${req}"\n\nOutput ONLY asset specs. Include ALL of the following:\n- Hero images/backgrounds (CSS textures, SVG noise, or image generation prompts)\n- Icons and iconography (style, stroke weight, per-icon descriptions, anti-patterns)\n- Section illustrations or photography (with generation prompts, style direction, negative prompts)\n- Open Graph / social share image (1200×630 spec)\n- Favicon / touch icons (SVG, 180×180, 32×32 specs)\n- Any intentionally omitted assets with reasoning\n\nProvide detailed, implementation-ready specifications.`,
     },
     {
       name: "typewriter",
       label: "Typewriter",
-      systemPrompt: loadSpecialist("typewriter"),
+      systemPrompt: loadSpecialist("typewriter") + "\n\n## Reference Skills\n\n" + loadSkills("design-intent"),
       taskPrompt: (req) =>
         `Analyze this project request and produce all text content:\n\n"${req}"\n\nOutput ONLY the copy — headlines, subheadings, body text, CTAs, navigation labels, footer text. Match the brand tone.`,
     },

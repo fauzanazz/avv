@@ -15,6 +15,7 @@ export interface RunAgentOptions {
   systemPrompt?: string;
   onMessage: (msg: ServerMessage) => void;
   cwd?: string;
+  maxTurns?: number;
 }
 
 /**
@@ -27,6 +28,7 @@ export async function runAgent({
   systemPrompt,
   onMessage,
   cwd,
+  maxTurns,
 }: RunAgentOptions): Promise<string> {
   const abort = new AbortController();
 
@@ -37,6 +39,7 @@ export async function runAgent({
     cwd: cwd ?? process.cwd(),
     allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
     ...(systemPrompt ? { systemPrompt } : {}),
+    ...(maxTurns ? { maxTurns } : {}),
   };
 
   const q = query({ prompt, options });

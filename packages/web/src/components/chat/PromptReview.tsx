@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AGENT_LABELS, AGENT_COLORS } from "./agent-constants";
 
 interface PromptReviewProps {
   promptId: string;
@@ -7,22 +8,6 @@ interface PromptReviewProps {
   onEdit: (promptId: string, content: string) => void;
   onApprove: (promptId: string) => void;
 }
-
-const AGENT_LABELS: Record<string, string> = {
-  "design-engineer": "Design Engineer",
-  "ux-engineer": "UX Engineer",
-  "animation-engineer": "Animation Engineer",
-  "artist-engineer": "Artist Engineer",
-  "typewriter": "Typewriter",
-};
-
-const AGENT_COLORS: Record<string, string> = {
-  "design-engineer": "text-[var(--agent-design)]",
-  "ux-engineer": "text-[var(--agent-ux)]",
-  "animation-engineer": "text-[var(--agent-animation)]",
-  "artist-engineer": "text-[var(--agent-artist)]",
-  "typewriter": "text-[var(--agent-typewriter)]",
-};
 
 export function PromptReview({
   promptId,

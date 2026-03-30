@@ -60,6 +60,13 @@ export function initDb(): void {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sandboxes (
+      conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+      sandbox_id TEXT NOT NULL,
+      host_port INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_prompts_conversation ON prompts(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_projects_conversation ON projects(conversation_id);

@@ -34,6 +34,7 @@ export type ServerMessage =
   | { type: "prompt:building"; agent: PromptBuilderAgent; output: string }
   | {
       type: "prompt:complete";
+      conversationId: string;
       promptId: string;
       content: string;
       agentsOutput: Record<string, string>;

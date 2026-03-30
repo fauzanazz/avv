@@ -57,6 +57,10 @@ export function loadSkill(name: SkillName): string {
   return content;
 }
 
+export function loadSkills(...names: SkillName[]): string {
+  return names.map((name) => loadSkill(name)).join("\n\n---\n\n");
+}
+
 export function loadAllSkills(): string {
   return SKILLS.map((name) => loadSkill(name)).join("\n\n---\n\n");
 }

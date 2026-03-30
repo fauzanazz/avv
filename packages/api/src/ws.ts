@@ -507,9 +507,16 @@ async function handleChatSend(
   };
 
   try {
+    // If a project exists for this conversation, give the agent project context
+    // so follow-up messages like "change the hero color" work correctly
+    const agentCwd = projectDir ?? undefined;
+    const agentSystemPrompt = projectDir ? CODE_GEN_SYSTEM_PROMPT : undefined;
+
     const fullText = await runAgent({
       conversationId: cid,
       prompt: message,
+      systemPrompt: agentSystemPrompt,
+      cwd: agentCwd,
       onMessage,
     });
 
@@ -574,12 +581,18 @@ async function handlePromptBuild(
         : userRequest;
       const prompt = savePrompt(cid, title, result.mergedPrompt, agentsOutput);
 
-      // Persist as assistant message
-      appendMessage(cid, "assistant", `Prompt ready for review (${Object.keys(result.agentsOutput).length} agents contributed)`);
+      // Persist as assistant message with full prompt data in metadata
+      appendMessage(cid, "assistant", result.mergedPrompt, {
+        type: "prompt",
+        promptId: prompt.id,
+        promptContent: result.mergedPrompt,
+        agentsOutput,
+      });
 
       // Send prompt:complete to client
       connectionStore.broadcast(cid, {
         type: "prompt:complete",
+        conversationId: cid,
         promptId: prompt.id,
         content: result.mergedPrompt,
         agentsOutput: result.agentsOutput,
@@ -597,29 +610,41 @@ async function handlePromptBuild(
 
 // ── Code Generation Handler ──────────────────────────────────
 
-const CODE_GEN_SYSTEM_PROMPT = `You are an expert frontend engineer. You are working inside a pre-scaffolded Vite + React + TypeScript project.
+const CODE_GEN_SYSTEM_PROMPT = `You are an expert frontend engineer with full creative and technical freedom. You are working inside a Vite + React + TypeScript project with a running dev server (hot reload active).
 
-## Project Structure
-The project is already set up at the current working directory with:
+## Pre-installed Stack
+These are already available — no install needed:
 - React 19 + TypeScript
-- Vite 6 (dev server is running — hot reload active)
-- Tailwind CSS v4 (use @import "tailwindcss" in CSS, utility classes in JSX)
-- Framer Motion (import { motion, AnimatePresence } from "framer-motion")
-- Lucide React (import { IconName } from "lucide-react")
+- Vite 6
+- Tailwind CSS v4 (\`@import "tailwindcss"\` in CSS)
+- Framer Motion (\`import { motion, AnimatePresence } from "framer-motion"\`)
+- Lucide React (\`import { IconName } from "lucide-react"\`)
 
-## Rules
-- Write all components in the src/ directory
-- Use TypeScript (.tsx) for all React components
-- Use Tailwind CSS classes for all styling — avoid separate CSS files unless truly needed
-- Use Framer Motion for animations and transitions
-- Use Lucide React for icons
+## Your Freedom
+You have full access to the npm ecosystem. If the specification calls for a library — or if you judge that a library would produce significantly better results — install it:
+\`\`\`bash
+pnpm add <package>
+\`\`\`
+
+Examples of when to install:
+- GSAP or @react-spring/web for complex animation timelines the spec demands
+- Three.js / @react-three/fiber for 3D scenes
+- A charting library (recharts, visx, chart.js) for data visualization
+- @tanstack/react-query for data fetching patterns
+- Zustand or Jotai for state management in complex apps
+- Any font, icon pack, or utility that serves the design
+
+Use your judgment. The best tool for the job wins — there are no artificial library restrictions.
+
+## Project Conventions
+- Write all code in the src/ directory as TypeScript (.tsx)
 - Edit src/App.tsx as the main entry component
-- Create subdirectories in src/ as needed (e.g., src/components/, src/sections/, src/lib/)
-- Do NOT modify package.json, vite.config.ts, or tsconfig.json
-- You MAY add dependencies via the Bash tool: pnpm add <package>
-- The dev server is already running — just write files and they will hot-reload
-- Generate clean, production-ready code based on the provided specification
-- Write complete implementations, not stubs or placeholders`;
+- Create subdirectories as needed (src/components/, src/sections/, src/hooks/, src/lib/)
+- Tailwind CSS is the primary styling tool — use utility classes in JSX
+- Do NOT modify vite.config.ts or tsconfig.json (these control the build pipeline)
+- The dev server is running — write files and they hot-reload instantly
+- Write complete, production-ready implementations — not stubs or placeholders
+- If something isn't specified, make a strong creative decision and commit to it`;
 
 async function handleCodeGeneration(
   ws: ServerWebSocket<WSData>,
@@ -772,6 +797,7 @@ async function handleCodeGeneration(
       systemPrompt: CODE_GEN_SYSTEM_PROMPT,
       onMessage,
       cwd: projectDir,
+      maxTurns: 200,
     });
 
     // File tree from all tracked files (relative paths)
@@ -825,8 +851,8 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
   let hasPreview = false;
 
   if (!hasSandbox(conversationId) && await isAgentBoxAvailable()) {
+    const progress = makeSandboxProgressBroadcaster(conversationId);
     try {
-      const progress = makeSandboxProgressBroadcaster(conversationId);
       // Boot sandbox WITHOUT starting Vite — restore files first so Vite
       // builds its module graph from the complete file set, not the skeleton template.
       const session = await createSandboxSession(conversationId, progress, { startVite: false });
@@ -836,7 +862,8 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
       console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
     } catch (err) {
       console.error(`[Restore] Sandbox creation failed for ${conversationId}:`, err);
-      // Fall through to local dev server
+      // Broadcast error so the frontend dismisses the progress UI
+      progress("boot", "error", "Sandbox unavailable — using fallback preview");
     }
   } else if (hasSandbox(conversationId)) {
     hasPreview = true;

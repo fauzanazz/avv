@@ -181,7 +181,28 @@ export function useChat() {
         setStreaming((s) => ({ ...s, isStreaming: false }));
         break;
 
-      case "prompt:complete":
+      case "prompt:complete": {
+        // Add prompt card to message history so it persists across reloads
+        const promptMsg: Message = {
+          id: crypto.randomUUID(),
+          conversationId: msg.conversationId,
+          role: "assistant",
+          content: msg.content,
+          metadata: {
+            type: "prompt",
+            promptId: msg.promptId,
+            promptContent: msg.content,
+            agentsOutput: Object.entries(msg.agentsOutput).map(
+              ([agent, output]) => ({
+                agent: agent as import("@avv/shared").PromptBuilderAgent,
+                output,
+                timestamp: Date.now(),
+              }),
+            ),
+          },
+          createdAt: Date.now(),
+        };
+        setMessages((prev) => [...prev, promptMsg]);
         setPendingPrompt({
           promptId: msg.promptId,
           content: msg.content,
@@ -189,6 +210,7 @@ export function useChat() {
         });
         setStreaming(INITIAL_STREAMING);
         break;
+      }
 
       case "preview:ready":
         setPreviewUrl(msg.url);
@@ -207,6 +229,10 @@ export function useChat() {
             if (msg.status === "done") return null;
             return updated;
           });
+          // Auto-dismiss progress after error so the fallback preview can show
+          if (msg.status === "error") {
+            setTimeout(() => setSandboxProgress(null), 3000);
+          }
           break;
         }
         setSandboxProgress((prev) => {
