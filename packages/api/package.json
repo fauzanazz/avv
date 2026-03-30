@@ -11,9 +11,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "agentbox": "file:../../../agentbox/sdks/typescript",
     "@anthropic-ai/claude-agent-sdk": "^0.2.81",
     "@avv/shared": "workspace:*",
+    "agentbox": "file:../../../agentbox/sdks/typescript",
     "drizzle-orm": "^0.45.2",
     "hono": "^4",
     "zod": "^4.3.6"
@@ -21,6 +21,8 @@
   "devDependencies": {
     "@types/bun": "^1.3.11",
     "drizzle-kit": "^0.31.10",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3",
     "typescript": "^5.7"
   }
 }

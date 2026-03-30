@@ -3,6 +3,9 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
 import { join } from "path";
 import { mkdirSync } from "fs";
+import { createChildLogger } from "../logger";
+
+const log = createChildLogger("db");
 
 const DATA_DIR = join(import.meta.dir, "..", "..", "..", "..", "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -72,5 +75,5 @@ export function initDb(): void {
     CREATE INDEX IF NOT EXISTS idx_projects_conversation ON projects(conversation_id);
   `);
 
-  console.log(`[DB] SQLite initialized at ${DB_PATH}`);
+  log.info({ path: DB_PATH }, "SQLite initialized");
 }

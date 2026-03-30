@@ -3,6 +3,9 @@ import { homedir, tmpdir } from "os";
 import { existsSync } from "fs";
 import { cp, mkdir, readdir, readFile, rm } from "fs/promises";
 import { storage, isProduction } from "../storage";
+import { createChildLogger } from "../logger";
+
+const log = createChildLogger("scaffolder");
 
 const LOCAL_PROJECTS_ROOT = join(homedir(), "avv-projects");
 const TEMP_PROJECTS_ROOT = join(tmpdir(), "avv");
@@ -48,7 +51,7 @@ export async function scaffoldProject(conversationId: string): Promise<string> {
   // Upload all project files to storage
   await uploadProjectToStorage(conversationId, projectDir);
 
-  console.log(`[Scaffolder] Project created at ${projectDir}`);
+  log.info({ conversationId, projectDir }, "Project created");
   return projectDir;
 }
 
@@ -89,7 +92,7 @@ export async function getOrCreateProjectDir(conversationId: string): Promise<str
   // Install dependencies
   await installDeps(projectDir);
 
-  console.log(`[Scaffolder] Project restored from storage at ${projectDir}`);
+  log.info({ conversationId, projectDir }, "Project restored from storage");
   return projectDir;
 }
 
@@ -115,7 +118,7 @@ export async function uploadProjectToStorage(
       await storage.put(conversationId, relativePath, new Uint8Array(content));
     }),
   );
-  console.log(`[Scaffolder] Uploaded ${files.length} files to storage for ${conversationId}`);
+  log.info({ conversationId, fileCount: files.length }, "Uploaded files to storage");
 }
 
 /**
@@ -126,14 +129,14 @@ export async function cleanupTempDir(conversationId: string): Promise<void> {
   const projectDir = join(TEMP_PROJECTS_ROOT, conversationId);
   try {
     await rm(projectDir, { recursive: true, force: true });
-    console.log(`[Scaffolder] Cleaned up temp dir for ${conversationId}`);
+    log.info({ conversationId }, "Cleaned up temp dir");
   } catch { /* ignore */ }
 }
 
 // ── Helpers ──────────────────────────────────────────────────
 
 async function installDeps(projectDir: string): Promise<void> {
-  console.log(`[Scaffolder] Installing dependencies in ${projectDir}...`);
+  log.info({ projectDir }, "Installing dependencies");
 
   const proc = Bun.spawn(["pnpm", "install"], {
     cwd: projectDir,
@@ -148,7 +151,7 @@ async function installDeps(projectDir: string): Promise<void> {
     throw new Error(`pnpm install failed (exit ${exitCode}): ${stderr}`);
   }
 
-  console.log(`[Scaffolder] Dependencies installed`);
+  log.info("Dependencies installed");
 }
 
 async function walkDir(dir: string, root?: string): Promise<string[]> {

@@ -1,6 +1,9 @@
 import type { ServerWebSocket } from "bun";
 import type { ClientMessage, ServerMessage, FileEntry, SandboxStep, SandboxStepStatus } from "@avv/shared";
 import { connectionStore, type WSData } from "./store";
+import { createChildLogger } from "./logger";
+
+const log = createChildLogger("ws");
 import {
   createConversation,
   getConversation,
@@ -51,7 +54,7 @@ export function createWSHandler() {
   return {
     open(ws: ServerWebSocket<WSData>) {
       const { conversationId } = ws.data;
-      console.log(`[WS] Client connected (conversation: ${conversationId ?? "none"})`);
+      log.info({ conversationId: conversationId ?? "none" }, "Client connected");
 
       if (conversationId) {
         connectionStore.add(conversationId, ws);
@@ -70,13 +73,13 @@ export function createWSHandler() {
       try {
         handleClientMessage(ws, msg);
       } catch (err) {
-        console.error("[WS] Handler error:", err);
+        log.error({ err }, "Handler error");
         connectionStore.send(ws, { type: "error", message: "Internal server error" });
       }
     },
 
     close(ws: ServerWebSocket<WSData>) {
-      console.log("[WS] Client disconnected");
+      log.info("Client disconnected");
       connectionStore.remove(ws);
     },
   };
@@ -283,7 +286,7 @@ async function syncFileWithFallback(
   } catch (err) {
     const healthy = await checkSandboxHealth(cid);
     if (!healthy) {
-      console.log(`[Sandbox] Dead sandbox detected for ${cid}, falling back to local dev server`);
+      log.warn({ conversationId: cid }, "Dead sandbox detected, falling back to local dev server");
       await destroySandbox(cid);
 
       if (!getDevServerPort(cid)) {
@@ -298,11 +301,11 @@ async function syncFileWithFallback(
       connectionStore.broadcast(cid, { type: "preview:ready", url: `/preview/${cid}/` });
     } else {
       // Sandbox is alive but sync failed (transient error) — retry once
-      console.warn(`[Sandbox] Transient sync failure for ${filePath}:`, err);
+      log.warn({ filePath, err }, "Transient sync failure");
       try {
         await syncFileToSandbox(cid, filePath, projectDir);
       } catch {
-        console.error(`[Sandbox] Retry failed for ${filePath}, file out of sync`);
+        log.error({ filePath }, "Retry failed, file out of sync");
       }
     }
   }
@@ -360,7 +363,7 @@ function handleBashCompletion(
         if (packages.length > 0) {
           const safeList = packages.join(" ");
           execInSandbox(cid, `cd /workspace/project && npm install ${safeList}`, 120).catch(() => {});
-          console.log(`[Sandbox] Syncing pnpm add: npm install ${safeList}`);
+          log.info({ packages: safeList }, "Syncing pnpm add to sandbox");
         }
       }
     }
@@ -410,7 +413,7 @@ async function handleChatSend(
 
   // Classify and route
   const route: Route = classifyMessage(message);
-  console.log(`[Router] "${message.slice(0, 60)}" → ${route}`);
+  log.info({ message: message.slice(0, 60), route }, "Message routed");
 
   if (route === "build") {
     connectionStore.broadcast(cid, {
@@ -542,7 +545,7 @@ async function handleChatSend(
       );
     }
   } catch (err) {
-    console.error("[Chat] Agent failed:", err);
+    log.error({ conversationId: cid, err }, "Chat agent failed");
     connectionStore.broadcast(cid, {
       type: "chat:error",
       conversationId: cid,
@@ -599,7 +602,7 @@ async function handlePromptBuild(
       });
     }
   } catch (err) {
-    console.error("[PromptBuilder] Failed:", err);
+    log.error({ conversationId: cid, err }, "Prompt builder failed");
     connectionStore.broadcast(cid, {
       type: "chat:error",
       conversationId: cid,
@@ -671,7 +674,7 @@ async function handleCodeGeneration(
   try {
     projectDir = await scaffoldProject(cid);
   } catch (err) {
-    console.error("[CodeGen] Scaffold failed:", err);
+    log.error({ conversationId: cid, err }, "Code generation scaffold failed");
     connectionStore.broadcast(cid, {
       type: "chat:error",
       conversationId: cid,
@@ -695,9 +698,9 @@ async function handleCodeGeneration(
     try {
       await createSandboxSession(cid, makeSandboxProgressBroadcaster(cid));
       useSandbox = true;
-      console.log(`[CodeGen] Using AgentBox sandbox for ${cid}`);
+      log.info({ conversationId: cid }, "Using AgentBox sandbox for code generation");
     } catch (err) {
-      console.warn("[CodeGen] Sandbox creation failed, falling back to local:", err);
+      log.warn({ err }, "Sandbox creation failed, falling back to local");
       useSandbox = false;
     }
   }
@@ -712,7 +715,7 @@ async function handleCodeGeneration(
     try {
       await startDevServer(cid, projectDir);
     } catch (err) {
-      console.error("[CodeGen] Dev server start failed:", err);
+      log.error({ conversationId: cid, err }, "Dev server start failed");
     }
   }
 
@@ -817,7 +820,7 @@ async function handleCodeGeneration(
     // Clean up ephemeral temp dir (no-op in dev)
     cleanupTempDir(cid).catch(() => {});
   } catch (err) {
-    console.error("[CodeGen] Failed:", err);
+    log.error({ conversationId: cid, err }, "Code generation failed");
     connectionStore.broadcast(cid, { type: "chat:error", conversationId: cid, error: "Code generation failed" });
   }
 }
@@ -859,9 +862,9 @@ async function restoreFileState(ws: ServerWebSocket<WSData>, conversationId: str
       await restoreSandboxFromStorage(conversationId);
       await startViteInSandbox(conversationId, progress);
       hasPreview = true;
-      console.log(`[Restore] Sandbox recreated for ${conversationId} on port ${session.hostPort}`);
+      log.info({ conversationId, port: session.hostPort }, "Sandbox recreated for restore");
     } catch (err) {
-      console.error(`[Restore] Sandbox creation failed for ${conversationId}:`, err);
+      log.error({ conversationId, err }, "Sandbox creation failed during restore");
       // Broadcast error so the frontend dismisses the progress UI
       progress("boot", "error", "Sandbox unavailable — using fallback preview");
     }

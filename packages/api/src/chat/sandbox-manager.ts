@@ -5,6 +5,9 @@ import type { SandboxStep, SandboxStepStatus } from "@avv/shared";
 import { storage } from "../storage";
 import { db, schema } from "../db";
 import { eq } from "drizzle-orm";
+import { createChildLogger } from "../logger";
+
+const log = createChildLogger("sandbox");
 
 const AGENTBOX_URL = process.env.AGENTBOX_URL ?? "http://178.128.214.76:8080";
 const TEMPLATE_DIR = join(import.meta.dir, "../../template");
@@ -33,7 +36,7 @@ function persistSandbox(conversationId: string, sandboxId: string, hostPort: num
       .run();
   } catch (err) {
     // FK constraint fails if conversation doesn't exist yet — non-fatal
-    console.warn(`[Sandbox] Failed to persist sandbox for ${conversationId}:`, err);
+    log.warn({ conversationId, err }, "Failed to persist sandbox");
   }
 }
 
@@ -49,7 +52,7 @@ function unpersistSandbox(conversationId: string): void {
  */
 export async function reconcileSandboxes(): Promise<void> {
   if (!(await isAgentBoxAvailable())) {
-    console.log("[Sandbox] AgentBox not available — skipping reconciliation");
+    log.info("AgentBox not available — skipping reconciliation");
     return;
   }
 
@@ -93,8 +96,9 @@ export async function reconcileSandboxes(): Promise<void> {
     }
   }
 
-  console.log(
-    `[Sandbox] Reconciliation: ${reconnected} reconnected, ${persisted.length - reconnected} stale cleaned, ${orphansDestroyed} orphans destroyed`,
+  log.info(
+    { reconnected, staleCleaned: persisted.length - reconnected, orphansDestroyed },
+    "Reconciliation complete",
   );
 }
 
@@ -210,8 +214,9 @@ export async function createSandboxSession(
       await startViteInSandbox(conversationId, onProgress);
     }
 
-    console.log(
-      `[Sandbox] Created for ${conversationId} — preview at http://${forward.local_address}/`,
+    log.info(
+      { conversationId, previewUrl: `http://${forward.local_address}/` },
+      "Sandbox created",
     );
     return session;
   } catch (err) {
@@ -273,7 +278,7 @@ export async function syncFileToSandbox(
     const content = readFileSync(localFilePath);
     await session.sandbox.uploadContent(new Uint8Array(content), remotePath);
   } catch (err) {
-    console.error(`[Sandbox] File sync failed for ${localFilePath}:`, err);
+    log.error({ conversationId, localFilePath, err }, "File sync failed");
     throw err; // Re-throw so callers can detect failures and fall back
   }
 }
@@ -302,9 +307,9 @@ export async function destroySandbox(conversationId: string): Promise<void> {
   try {
     await session.sandbox.destroy();
   } catch (err) {
-    console.error(`[Sandbox] Destroy failed for ${conversationId}:`, err);
+    log.error({ conversationId, err }, "Destroy failed");
   }
-  console.log(`[Sandbox] Destroyed for ${conversationId}`);
+  log.info({ conversationId }, "Sandbox destroyed");
 }
 
 /**
@@ -365,7 +370,7 @@ export async function execInSandbox(
     session.lastActivity = Date.now();
     return await session.sandbox.exec(command, timeout);
   } catch (err) {
-    console.error(`[Sandbox] Exec failed for ${conversationId}:`, err);
+    log.error({ conversationId, err }, "Exec failed");
     return null;
   }
 }
@@ -389,7 +394,7 @@ export async function syncContentToSandbox(
     await session.sandbox.exec(`mkdir -p ${remoteDir}`);
     await session.sandbox.uploadContent(content, remotePath);
   } catch (err) {
-    console.error(`[Sandbox] Content sync failed for ${relativePath}:`, err);
+    log.error({ conversationId, relativePath, err }, "Content sync failed");
     throw err;
   }
 }
@@ -403,7 +408,7 @@ export async function restoreSandboxFromStorage(conversationId: string): Promise
   if (!session) return;
 
   const files = await storage.list(conversationId);
-  console.log(`[Sandbox] Restoring ${files.length} files from storage for ${conversationId}`);
+  log.info({ conversationId, fileCount: files.length }, "Restoring files from storage");
 
   await Promise.all(
     files.map(async (relativePath) => {
@@ -429,7 +434,7 @@ export function startIdleCleanup(): void {
     const toDestroy: string[] = [];
     for (const [cid, session] of activeSandboxes) {
       if (now - session.lastActivity > IDLE_TIMEOUT_MS) {
-        console.log(`[Sandbox] Destroying idle sandbox for ${cid} (idle ${Math.round((now - session.lastActivity) / 60000)}min)`);
+        log.info({ conversationId: cid, idleMinutes: Math.round((now - session.lastActivity) / 60000) }, "Destroying idle sandbox");
         toDestroy.push(cid);
       }
     }

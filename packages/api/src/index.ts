@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { logger as honoLogger } from "hono/logger";
 import { healthRoute } from "./routes/health";
 import { createWSHandler } from "./ws";
 import type { WSData } from "./store";
@@ -9,6 +9,9 @@ import { initDb } from "./db";
 import { getDevServerPort, stopAllDevServers } from "./chat/dev-server";
 import { destroyAllSandboxes, getSandboxPreviewUrl, reconcileSandboxes, startIdleCleanup, stopIdleCleanup } from "./chat/sandbox-manager";
 import { storage } from "./storage";
+import { createChildLogger } from "./logger";
+
+const log = createChildLogger("server");
 
 initDb();
 validatePrompts();
@@ -16,7 +19,7 @@ validatePrompts();
 const app = new Hono();
 
 app.use("*", cors());
-app.use("*", logger());
+app.use("*", honoLogger());
 
 app.route("/api", healthRoute);
 
@@ -148,12 +151,12 @@ Bun.serve<WSData>({
   websocket: wsHandler,
 });
 
-console.log(`AVV API running on http://localhost:${port}`);
-console.log(`WebSocket available at ws://localhost:${port}/ws`);
+log.info({ port }, "AVV API running");
+log.info({ port }, "WebSocket available");
 
 // Reconcile persisted sandboxes with the AgentBox server, then start idle cleanup
 reconcileSandboxes()
-  .catch((err) => console.warn("[Sandbox] Reconciliation failed:", err))
+  .catch((err) => log.warn({ err }, "Sandbox reconciliation failed"))
   .finally(() => startIdleCleanup());
 
 // Clean up on shutdown

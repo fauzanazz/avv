@@ -1,4 +1,7 @@
 import type { Subprocess } from "bun";
+import { createChildLogger } from "../logger";
+
+const log = createChildLogger("dev-server");
 
 interface DevServer {
   process: Subprocess;
@@ -17,7 +20,7 @@ export async function startDevServer(
   projectDir: string,
 ): Promise<number> {
   if (process.env.NODE_ENV === "production") {
-    console.warn("[DevServer] Local dev server disabled in production — use sandbox preview");
+    log.warn("Local dev server disabled in production — use sandbox preview");
     return -1;
   }
 
@@ -42,7 +45,7 @@ export async function startDevServer(
   // Wait for dev server to be ready
   await waitForServer(port, 30_000);
 
-  console.log(`[DevServer] Started for ${conversationId} on port ${port}`);
+  log.info({ conversationId, port }, "Dev server started");
   return port;
 }
 
@@ -55,7 +58,7 @@ export function stopDevServer(conversationId: string): void {
 
   server.process.kill();
   activeServers.delete(conversationId);
-  console.log(`[DevServer] Stopped for ${conversationId}`);
+  log.info({ conversationId }, "Dev server stopped");
 }
 
 /**
@@ -78,7 +81,7 @@ export function getDevServerProjectDir(conversationId: string): string | null {
 export function stopAllDevServers(): void {
   for (const [cid, server] of activeServers) {
     server.process.kill();
-    console.log(`[DevServer] Stopped for ${cid}`);
+    log.info({ conversationId: cid }, "Dev server stopped");
   }
   activeServers.clear();
 }
@@ -120,5 +123,5 @@ async function waitForServer(port: number, timeoutMs: number): Promise<void> {
     await Bun.sleep(interval);
   }
 
-  console.warn(`[DevServer] Timeout waiting for port ${port} after ${timeoutMs}ms`);
+  log.warn({ port, timeoutMs }, "Timeout waiting for dev server");
 }

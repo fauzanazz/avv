@@ -1,5 +1,8 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { createChildLogger } from "../logger";
+
+const log = createChildLogger("prompts");
 
 const PROMPTS_DIR = join(import.meta.dir, "..", "..", "prompts");
 const SKILLS_DIR = join(PROMPTS_DIR, "skills");
@@ -84,14 +87,13 @@ export function validatePrompts(): void {
   }
 
   if (missing.length > 0) {
-    console.warn(
-      `[Prompts] Missing templates (create before using):\n  ${missing.join("\n  ")}`
-    );
+    log.warn({ missing }, "Missing templates (create before using)");
     return;
   }
 
-  console.log(
-    `[Prompts] All ${REQUIRED_PROMPTS.length} prompts + ${SPECIALIST_PROMPTS.length} specialists + ${SKILLS.length} skills validated`
+  log.info(
+    { prompts: REQUIRED_PROMPTS.length, specialists: SPECIALIST_PROMPTS.length, skills: SKILLS.length },
+    "All prompt templates validated",
   );
 }
 
