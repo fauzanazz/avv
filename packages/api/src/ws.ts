@@ -702,6 +702,8 @@ async function handleCodeGeneration(
     } catch (err) {
       log.warn({ err }, "Sandbox creation failed, falling back to local");
       useSandbox = false;
+      // Dismiss the sandbox progress UI so fallback preview can show
+      makeSandboxProgressBroadcaster(cid)("boot", "error", "Sandbox unavailable — using local preview");
     }
   }
 

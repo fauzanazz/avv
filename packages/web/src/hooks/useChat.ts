@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type {
   ServerMessage,
   Message,
@@ -55,6 +55,13 @@ export function useChat() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sandboxProgress, setSandboxProgress] = useState<SandboxProgressStep[] | null>(null);
+
+  // Safety-net: auto-dismiss sandbox progress if stuck for >3 minutes
+  useEffect(() => {
+    if (!sandboxProgress) return;
+    const timer = setTimeout(() => setSandboxProgress(null), 3 * 60 * 1000);
+    return () => clearTimeout(timer);
+  }, [sandboxProgress]);
 
   // Use ref for streaming text to avoid closure staling during rapid updates
   const streamTextRef = useRef("");
